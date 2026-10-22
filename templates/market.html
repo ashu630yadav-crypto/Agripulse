@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+
+{% block title %}Market Price Estimation & Mandi Tracker - AgriPulse{% endblock %}
+
+{% block content %}
+<div class="page-title-bar">
+  <div>
+    <h1>📈 Market Price Estimation & Mandi Intelligence</h1>
+    <p class="page-subtitle">Track live agricultural market rates, examine 7-day price trajectories, and determine optimal timing with our "Sell vs Hold" decision calculator.</p>
+  </div>
+  <div>
+    <button class="btn btn-voice" onclick="speakText('Mandi Market Advisory for {{ selected_item.name }}: Current modal price is ₹{{ selected_item.modal_price }} per {{ selected_item.unit }}. 7-day trend is {{ selected_item.trend }}. Advisory recommendation: {{ selected_item.advisory }}')">
+      🔊 Listen to Market Advisory
+    </button>
+  </div>
+</div>
+
+<!-- Commodities Overview Table -->
+<div class="card">
+  <div class="card-header">
+    <div class="card-title"><span>📊</span> Live APMC Mandi Commodity Dashboard</div>
+    <span class="badge badge-success">Daily Verified Rates</span>
+  </div>
+
+  <div style="overflow-x: auto;">
+    <table class="market-table">
+      <thead>
+        <tr>
+          <th>Commodity</th>
+          <th>Primary Mandi</th>
+          <th>Modal Price</th>
+          <th>Min - Max Range</th>
+          <th>Per Kg</th>
+          <th>24h Change</th>
+          <th>7-Day Trend</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in commodities %}
+        <tr style="{% if c.id == selected_crop %}background: #f0fdf4; font-weight: 600;{% endif %}">
+          <td>
+            <strong>{{ c.name }}</strong>
+            <span style="font-size: 0.75rem; color: var(--text-muted); display: block;">{{ c.category }}</span>
+          </td>
+          <td>📍 {{ c.primary_mandi }}</td>
+          <td><strong style="color: var(--primary-900); font-size: 1.05rem;">₹{{ c.modal_price }}</strong> / {{ c.unit }}</td>
+          <td style="font-size: 0.88rem; color: #475569;">₹{{ c.min_price }} - ₹{{ c.max_price }}</td>
+          <td>₹{{ c.per_kg }}/kg</td>
+          <td class="{% if c.trend == 'up' %}trend-up{% elif c.trend == 'down' %}trend-down{% else %}trend-stable{% endif %}">
+            {% if c.trend == 'up' %}↗ +{{ c.change_pct }}%{% elif c.trend == 'down' %}↘ {{ c.change_pct }}%{% else %}→ Steady{% endif %}
+          </td>
+          <td>
+            <svg id="sparkline_full_{{ c.id }}" width="120" height="36"></svg>
+          </td>
+          <td>
+            <a href="/market?crop={{ c.id }}" class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.8rem;">Select &rarr;</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Interactive "When & Where to Sell" Simulator -->
+<div class="grid-2" style="margin-top: 10px;">
+  <!-- Calculator Controls -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><span>⚖️</span> "Sell Now vs Hold" Storage Profit Calculator</div>
+      <span class="badge badge-gold">Smart Advisor</span>
+    </div>
+
+    <div style="margin-bottom: 16px;">
+      <label for="simCropSelect" style="display: block; font-size: 0.88rem; font-weight: 600; margin-bottom: 6px;">Selected Commodity:</label>
+      <select id="simCropSelect" onchange="runMarketSimulator()" style="width: 100%; padding: 10px; border: 1px solid var(--card-border); border-radius: var(--radius-sm); font-size: 0.95rem;">
+        {% for c in commodities %}
+        <option value="{{ c.id }}" {% if c.id == selected_crop %}selected{% endif %}>{{ c.name }} (₹{{ c.modal_price }}/{{ c.unit }})</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-bottom: 18px;">
+      <div>
+        <label for="simQuantityInput" style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px;">Your Harvest (Quintals):</label>
+        <input type="number" id="simQuantityInput" value="50" min="1" step="5" oninput="runMarketSimulator()" style="width: 100%; padding: 10px; border: 1px solid var(--card-border); border-radius: var(--radius-sm); font-size: 0.95rem;">
+      </div>
+      <div>
+        <label for="simStorageCostInput" style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px;">Storage Cost (₹/Qtl/Month):</label>
+        <input type="number" id="simStorageCostInput" value="30" min="0" step="5" oninput="runMarketSimulator()" style="width: 100%; padding: 10px; border: 1px solid var(--card-border); border-radius: var(--radius-sm); font-size: 0.95rem;">
+      </div>
+    </div>
+
+    <!-- Simulator Output Card -->
+    <div style="background: #f8fafc; border: 1px solid var(--card-border); border-radius: var(--radius-md); padding: 18px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <span style="font-size: 0.88rem; font-weight: 600; color: var(--text-muted);">RECOMMENDATION</span>
+        <span id="simUrgencyBadge" class="badge {{ calc.badge }}">{{ calc.urgency }}</span>
+      </div>
+      <div id="simVerdictText" style="font-size: 1rem; font-weight: 700; color: var(--primary-900); margin-bottom: 14px; line-height: 1.4;">
+        {{ calc.verdict }}
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; font-size: 0.88rem;">
+        <div style="background: #fff; padding: 10px; border-radius: var(--radius-sm); border: 1px solid #e2e8f0;">
+          <div style="font-size: 0.75rem; color: var(--text-muted);">Current Sale Payout</div>
+          <div id="simCurrentRevenue" style="font-size: 1.15rem; font-weight: 800; color: var(--text-dark);">₹{{ "{:,}".format(calc.current_revenue) }}</div>
+        </div>
+        <div style="background: #fff; padding: 10px; border-radius: var(--radius-sm); border: 1px solid #e2e8f0;">
+          <div style="font-size: 0.75rem; color: var(--text-muted);">Projected 30-Day Payout</div>
+          <div id="simFutureRevenue" style="font-size: 1.15rem; font-weight: 800; color: var(--primary-700);">₹{{ "{:,}".format(calc.gross_future_revenue) }}</div>
+        </div>
+        <div style="background: #fff; padding: 10px; border-radius: var(--radius-sm); border: 1px solid #e2e8f0;">
+          <div style="font-size: 0.75rem; color: var(--text-muted);">1-Month Storage Cost</div>
+          <div id="simStorageCost" style="font-size: 1.15rem; font-weight: 800; color: #dc2626;">-₹{{ "{:,}".format(calc.storage_cost) }}</div>
+        </div>
+        <div style="background: #fff; padding: 10px; border-radius: var(--radius-sm); border: 1px solid #e2e8f0;">
+          <div style="font-size: 0.75rem; color: var(--text-muted);">Net Holding Gain / Loss</div>
+          <div id="simNetGain" style="font-size: 1.15rem; font-weight: 800; color: {% if calc.net_gain_loss >= 0 %}#16a34a{% else %}#dc2626{% endif %};">
+            {% if calc.net_gain_loss >= 0 %}+₹{{ "{:,}".format(calc.net_gain_loss) }}{% else %}-₹{{ "{:,}".format(calc.net_gain_loss|abs) }}{% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Nearby Mandi Comparison -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><span>🚚</span> Nearby Mandi Price & Transport Net Yield</div>
+      <span class="badge badge-primary">Arbitrage</span>
+    </div>
+
+    <p style="font-size: 0.88rem; color: var(--text-muted); margin-bottom: 14px;">
+      Selling at a distant wholesale mandi can yield higher prices, but transport costs eat into your margin. Compare net profit for your lot:
+    </p>
+
+    <div style="overflow-x: auto;">
+      <table class="market-table" style="font-size: 0.85rem;">
+        <thead>
+          <tr>
+            <th>Mandi Yard</th>
+            <th>Dist.</th>
+            <th>Price/Qtl</th>
+            <th>Freight Cost</th>
+            <th>Net Payout</th>
+            <th>Vs Local Mandi</th>
+          </tr>
+        </thead>
+        <tbody id="simMandiTbody">
+          {% for opt in calc.mandi_options %}
+          <tr>
+            <td><strong>{{ opt.name }}</strong></td>
+            <td>{{ opt.distance_km }} km</td>
+            <td>₹{{ opt.price_per_qtl }}</td>
+            <td>₹{{ "{:,}".format(opt.transport_cost_total) }}</td>
+            <td><strong>₹{{ "{:,}".format(opt.net_revenue) }}</strong></td>
+            <td class="{% if opt.profit_difference >= 0 %}trend-up{% else %}trend-down{% endif %}">
+              {% if opt.profit_difference >= 0 %}+₹{{ "{:,}".format(opt.profit_difference) }}{% else %}-₹{{ "{:,}".format(opt.profit_difference|abs) }}{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Storage Pro Tip -->
+    <div style="margin-top: 20px; background: #fefce8; border: 1px solid #fef08a; padding: 14px; border-radius: var(--radius-sm); font-size: 0.85rem; color: #854d0e;">
+      <strong>💡 Mandi Timing Strategy:</strong> Mandi prices typically dip by 8-12% during peak harvest arrival windows (first 3 weeks) and rebound strongly thereafter. If you possess certified moisture-controlled storage, staggering sales yields 15-20% higher return.
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    {% for c in commodities %}
+      renderSparkline("sparkline_full_{{ c.id }}", {{ c.history_7d | tojson }});
+    {% endfor %}
+  });
+</script>
+{% endblock %}

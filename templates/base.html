@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}AgriPulse - Smart Agricultural Intelligence Platform{% endblock %}</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220%22><text y=%2226%22 font-size=%2226%22>🌾</text></svg>">
+</head>
+<body>
+
+  <!-- Weather Emergency Alert Top Banner (If active severe alerts exist) -->
+  {% if global_alerts and global_alerts[0].severity in ['High', 'Critical'] %}
+  <div class="emergency-banner">
+    <div class="banner-content">
+      <span class="banner-badge">{{ global_alerts[0].severity }} ALERT</span>
+      <span><strong>{{ global_alerts[0].icon }} {{ global_alerts[0].type }}:</strong> {{ global_alerts[0].headline }}</span>
+      <a href="/alerts" class="banner-link">View Protective Advisory &rarr;</a>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Header Navigation -->
+  <header class="main-header">
+    <nav class="navbar">
+      <a href="/" class="nav-brand">
+        <span class="brand-icon">🌾</span>
+        <div>
+          <span class="brand-name">AgriPulse</span>
+          <span class="brand-sub">Krishi Intelligence Hub</span>
+        </div>
+      </a>
+
+      <ul class="nav-links">
+        <li class="nav-item {% if request.path == '/' %}active{% endif %}">
+          <a href="/"><span>📊</span> Dashboard</a>
+        </li>
+        <li class="nav-item {% if request.path == '/weather' %}active{% endif %}">
+          <a href="/weather"><span>🌦️</span> Weather & Forecast</a>
+        </li>
+        <li class="nav-item {% if request.path == '/disease' %}active{% endif %}">
+          <a href="/disease"><span>🔬</span> Crop Disease AI</a>
+        </li>
+        <li class="nav-item {% if request.path == '/calendar' %}active{% endif %}">
+          <a href="/calendar"><span>📅</span> Planting Calendar</a>
+        </li>
+        <li class="nav-item {% if request.path == '/harvesting' %}active{% endif %}">
+          <a href="/harvesting"><span>🚜</span> Harvesting Guide</a>
+        </li>
+        <li class="nav-item {% if request.path == '/quality' %}active{% endif %}">
+          <a href="/quality"><span>⭐</span> Quality Grading</a>
+        </li>
+        <li class="nav-item {% if request.path == '/market' %}active{% endif %}">
+          <a href="/market"><span>📈</span> Mandi Prices</a>
+        </li>
+        <li class="nav-item {% if request.path == '/alerts' %}active{% endif %}">
+          <a href="/alerts"><span>🔔</span> Weather Alerts</a>
+        </li>
+      </ul>
+
+      <div class="nav-actions">
+        <div class="location-select-wrap">
+          <select id="globalLocationSelect" onchange="handleLocationChange(this)" title="Change agricultural region">
+            {% for key, loc in global_locations.items() %}
+              <option value="{{ key }}" {% if request.args.get('location') == key %}selected{% endif %}>
+                📍 {{ loc.name }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+    </nav>
+  </header>
+
+  <!-- Main Content Block -->
+  <main class="container">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- Footer -->
+  <footer class="main-footer">
+    <div class="footer-inner">
+      <div>
+        <div style="font-size: 1.2rem; font-weight: 700; color: #fff; margin-bottom: 4px;">🌾 AgriPulse</div>
+        <p style="font-size: 0.88rem;">Empowering farmers with precision agro-meteorology, computer vision diagnostics, and smart market analytics.</p>
+      </div>
+      <div style="text-align: right; font-size: 0.85rem;">
+        <p>Built for Sustainable & Profitable Agriculture</p>
+        <p style="color: #64748b; margin-top: 4px;">Weather data synced via Open-Meteo &copy; 2026</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="/static/js/main.js"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

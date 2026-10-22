@@ -1,0 +1,226 @@
+{% extends "base.html" %}
+
+{% block title %}AgriPulse - Farmer's Intelligence Dashboard{% endblock %}
+
+{% block content %}
+<!-- Page Title -->
+<div class="page-title-bar">
+  <div>
+    <h1>🌾 Agricultural Command Dashboard</h1>
+    <p class="page-subtitle">Real-time weather, crop disease diagnosis, seasonal calendars, harvesting advice, and market intelligence for <strong>{{ weather.location_name }}</strong></p>
+  </div>
+  <div>
+    <button class="btn btn-voice" onclick="speakText('Welcome to AgriPulse. Current temperature in {{ weather.location_name }} is {{ weather.current.temperature }} degrees Celsius. {{ weather.agro.spray_status }} conditions for spraying. Check your active crop advisories below.')">
+      🔊 Listen to Daily Summary
+    </button>
+  </div>
+</div>
+
+<!-- Weather Hero Widget -->
+<div class="weather-hero">
+  <div style="display: flex; align-items: center; gap: 24px;">
+    <span style="font-size: 4rem;">{{ weather.current.icon }}</span>
+    <div>
+      <div class="weather-hero-temp">{{ weather.current.temperature }}°C</div>
+      <div style="font-size: 1.1rem; opacity: 0.9; margin-top: 4px;">{{ weather.current.description }} &bull; Feels like {{ weather.current.feels_like }}°C</div>
+      <div style="font-size: 0.85rem; opacity: 0.75; margin-top: 2px;">📍 {{ weather.location_name }} &bull; Updated {{ weather.current.time }}</div>
+    </div>
+  </div>
+
+  <div style="display: flex; gap: 14px; flex-wrap: wrap;">
+    <div class="weather-metric-pill">
+      <div class="label">Relative Humidity</div>
+      <div class="val">{{ weather.current.humidity }}%</div>
+    </div>
+    <div class="weather-metric-pill">
+      <div class="label">Wind Speed</div>
+      <div class="val">{{ weather.current.wind_speed }} km/h</div>
+    </div>
+    <div class="weather-metric-pill">
+      <div class="label">Spraying Status</div>
+      <div class="val">{{ weather.agro.spray_status }}</div>
+    </div>
+    <div class="weather-metric-pill">
+      <div class="label">Fungal Risk</div>
+      <div class="val">{{ weather.agro.fungal_risk }}</div>
+    </div>
+  </div>
+</div>
+
+<!-- Active Weather Alerts Notification -->
+{% if alerts %}
+<div class="card" style="border-left: 6px solid #d90429;">
+  <div class="card-header">
+    <div class="card-title" style="color: #d90429;">
+      <span>⚠️</span> Active Agro-Weather Advisories ({{ alerts|length }})
+    </div>
+    <a href="/alerts" class="btn btn-secondary" style="font-size: 0.85rem;">View Full Protocol &rarr;</a>
+  </div>
+  <div class="grid-2">
+    {% for alert in alerts[:2] %}
+    <div style="background: #fff5f5; border: 1px solid #fed7d7; border-radius: var(--radius-md); padding: 16px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <strong>{{ alert.icon }} {{ alert.headline }}</strong>
+        <span class="badge {{ alert.severity_badge }}">{{ alert.severity }}</span>
+      </div>
+      <p style="font-size: 0.88rem; color: #4a5568; margin-bottom: 10px;">{{ alert.description }}</p>
+      <div style="font-size: 0.82rem; font-weight: 600; color: #2d3748;">Key Action:</div>
+      <p style="font-size: 0.85rem; color: #2b6cb0;">&bull; {{ alert.actions[0] }}</p>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Core Modules Grid (The 7 Pillars) -->
+<h2 style="font-size: 1.35rem; font-weight: 800; color: var(--primary-900); margin-bottom: 16px;">
+  🚜 Essential Agricultural Services
+</h2>
+
+<div class="grid-3">
+  <!-- 1. Weather Info -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><span>🌦️</span> Weather & 7-Day Forecast</div>
+      <span class="badge badge-success">Live</span>
+    </div>
+    <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 16px;">
+      Accurate temperature, rain probability, wind metrics, and hourly spraying suitability indices to plan irrigation and fertilization.
+    </p>
+    <div style="font-size: 0.88rem; background: #f8fafc; padding: 10px; border-radius: var(--radius-sm); margin-bottom: 16px;">
+      <strong>Spraying Advisory:</strong> {{ weather.agro.spray_reason }}
+    </div>
+    <a href="/weather" class="btn btn-primary" style="width: 100%;">Open Weather Radar &rarr;</a>
+  </div>
+
+  <!-- 2. Crop Disease Detection -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><span>🔬</span> Crop Disease AI</div>
+      <span class="badge badge-primary">Computer Vision</span>
+    </div>
+    <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 16px;">
+      Snap or upload a photo of infected leaves to instantly identify pathogens, severity grade, organic remedies, and chemical dosages.
+    </p>
+    <div style="font-size: 0.88rem; background: #f8fafc; padding: 10px; border-radius: var(--radius-sm); margin-bottom: 16px;">
+      <strong>Detected Diseases:</strong> Early Blight, Leaf Rust, Powdery Mildew, Bacterial Blight & more.
+    </div>
+    <a href="/disease" class="btn btn-primary" style="width: 100%;">Diagnose Crop Photo &rarr;</a>
+  </div>
+
+  <!-- 3. Crop Planting Calendar -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><span>📅</span> Crop Planting Calendar</div>
+      <span class="badge badge-warning">Seasonal</span>
+    </div>
+    <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 16px;">
+      Region-specific sowing and harvest schedules across Kharif, Rabi, and Zaid seasons with seed rate and soil requirements.
+    </p>
+    <div style="font-size: 0.88rem; background: #f8fafc; padding: 10px; border-radius: var(--radius-sm); margin-bottom: 16px;">
+      <strong>Current Season:</strong> Rabi Sowing & Kharif Harvesting windows active.
+    </div>
+    <a href="/calendar" class="btn btn-primary" style="width: 100%;">View Planting Schedules &rarr;</a>
+  </div>
+
+  <!-- 4. Harvesting Guidance -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><span>🚜</span> Harvesting Guidance</div>
+      <span class="badge badge-success">Maximizer</span>
+    </div>
+    <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 16px;">
+      Target moisture percentages, physical maturity signs, combine harvester calibrations, and interactive readiness checklist.
+    </p>
+    <div style="font-size: 0.88rem; background: #f8fafc; padding: 10px; border-radius: var(--radius-sm); margin-bottom: 16px;">
+      <strong>Includes:</strong> Interactive "Ready to Harvest?" checklist calculator.
+    </div>
+    <a href="/harvesting" class="btn btn-primary" style="width: 100%;">Check Crop Readiness &rarr;</a>
+  </div>
+
+  <!-- 5. Crop Quality Assessment -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><span>⭐</span> Crop Quality Grading</div>
+      <span class="badge badge-primary">Visual Grading</span>
+    </div>
+    <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 16px;">
+      Inspect visual appeal, blemish density, color vibrancy, and assign Grade A (Export), Grade B (Mandi), or Grade C (Processing).
+    </p>
+    <div style="font-size: 0.88rem; background: #f8fafc; padding: 10px; border-radius: var(--radius-sm); margin-bottom: 16px;">
+      <strong>Premium Valuation:</strong> Grade A commands +25% higher market realization.
+    </div>
+    <a href="/quality" class="btn btn-primary" style="width: 100%;">Grade Your Produce &rarr;</a>
+  </div>
+
+  <!-- 6. Market Price Estimation -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><span>📈</span> Mandi Prices & Trends</div>
+      <span class="badge badge-gold">Profit Engine</span>
+    </div>
+    <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 16px;">
+      Live commodity prices across major APMC Mandis with 7-day sparklines and "Sell Now vs Hold" storage profit simulator.
+    </p>
+    <div style="font-size: 0.88rem; background: #f8fafc; padding: 10px; border-radius: var(--radius-sm); margin-bottom: 16px;">
+      <strong>Smart Advisory:</strong> Evaluates storage cost vs projected 30-day price gain.
+    </div>
+    <a href="/market" class="btn btn-primary" style="width: 100%;">Explore Mandi Rates &rarr;</a>
+  </div>
+</div>
+
+<!-- Live Mandi Market Ticker Preview -->
+<div class="card" style="margin-top: 10px;">
+  <div class="card-header">
+    <div class="card-title"><span>📊</span> Today's Top Agricultural Commodity Prices</div>
+    <a href="/market" class="btn btn-secondary" style="font-size: 0.85rem;">View All 10+ Commodities &rarr;</a>
+  </div>
+  
+  <div style="overflow-x: auto;">
+    <table class="market-table">
+      <thead>
+        <tr>
+          <th>Commodity</th>
+          <th>Primary Mandi</th>
+          <th>Modal Price</th>
+          <th>Per Kg</th>
+          <th>24h Change</th>
+          <th>7-Day Trend</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in market_items %}
+        <tr>
+          <td><strong>{{ item.name }}</strong></td>
+          <td>📍 {{ item.primary_mandi }}</td>
+          <td><strong style="color: var(--primary-900);">₹{{ item.modal_price }}</strong> / {{ item.unit }}</td>
+          <td>₹{{ item.per_kg }}/kg</td>
+          <td class="{% if item.trend == 'up' %}trend-up{% elif item.trend == 'down' %}trend-down{% else %}trend-stable{% endif %}">
+            {% if item.trend == 'up' %}↗ +{{ item.change_pct }}%{% elif item.trend == 'down' %}↘ {{ item.change_pct }}%{% else %}→ Steady{% endif %}
+          </td>
+          <td>
+            <svg id="sparkline_{{ item.id }}" width="120" height="36"></svg>
+          </td>
+          <td>
+            <a href="/market?crop={{ item.id }}" class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.8rem;">Analyze &rarr;</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Render sparklines on page load
+  document.addEventListener("DOMContentLoaded", () => {
+    {% for item in market_items %}
+      renderSparkline("sparkline_{{ item.id }}", {{ item.history_7d | tojson }});
+    {% endfor %}
+  });
+</script>
+{% endblock %}

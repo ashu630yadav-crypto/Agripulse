@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+
+{% block title %}Weather Information & Agro-Forecast - AgriPulse{% endblock %}
+
+{% block content %}
+<div class="page-title-bar">
+  <div>
+    <h1>🌦️ Agricultural Weather & Forecast System</h1>
+    <p class="page-subtitle">Precision meteorology tailored for farm operations: spraying windows, fungal infection risks, and evapotranspiration.</p>
+  </div>
+  <div>
+    <button class="btn btn-voice" onclick="speakText('Weather forecast for {{ weather.location_name }}: Current temperature is {{ weather.current.temperature }} degrees with {{ weather.current.description }}. Spraying status is {{ weather.agro.spray_status }}. Fungal infection risk is {{ weather.agro.fungal_risk }}. Estimated evapotranspiration is {{ weather.agro.et0 }} millimeters per day.')">
+      🔊 Listen to Weather Forecast
+    </button>
+  </div>
+</div>
+
+<!-- Location selector pills -->
+<div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px;">
+  <span style="font-size: 0.9rem; font-weight: 600; align-self: center; color: var(--text-muted);">Quick Regions:</span>
+  {% for key, loc in global_locations.items() %}
+    <a href="/weather?location={{ key }}" class="sample-chip {% if current_loc == key %}active{% endif %}" style="{% if current_loc == key %}background: var(--primary-100); border-color: var(--primary-700); font-weight: 700;{% endif %}">
+      📍 {{ loc.name }}
+    </a>
+  {% endfor %}
+</div>
+
+<!-- Main Weather Hero Box -->
+<div class="weather-hero">
+  <div>
+    <div style="font-size: 1.1rem; opacity: 0.85; margin-bottom: 6px;">📍 {{ weather.location_name }}</div>
+    <div style="display: flex; align-items: center; gap: 20px;">
+      <span style="font-size: 4.5rem;">{{ weather.current.icon }}</span>
+      <div>
+        <div class="weather-hero-temp">{{ weather.current.temperature }}°C</div>
+        <div style="font-size: 1.25rem; font-weight: 600;">{{ weather.current.description }}</div>
+        <div style="font-size: 0.9rem; opacity: 0.85;">Feels like {{ weather.current.feels_like }}°C &bull; Updated {{ weather.current.time }}</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; min-width: 320px;">
+    <div class="weather-metric-pill">
+      <div class="label">Relative Humidity</div>
+      <div class="val">{{ weather.current.humidity }}%</div>
+    </div>
+    <div class="weather-metric-pill">
+      <div class="label">Wind Speed</div>
+      <div class="val">{{ weather.current.wind_speed }} km/h</div>
+    </div>
+    <div class="weather-metric-pill">
+      <div class="label">Barometric Pressure</div>
+      <div class="val">{{ weather.current.pressure }} hPa</div>
+    </div>
+    <div class="weather-metric-pill">
+      <div class="label">UV Radiation Index</div>
+      <div class="val">{{ weather.current.uv_index }} Max</div>
+    </div>
+  </div>
+</div>
+
+<!-- Agro-Meteorological Decision Indices -->
+<div class="card">
+  <div class="card-header">
+    <div class="card-title"><span>🌱</span> Farm Operation & Decision Indices</div>
+    <span class="badge badge-primary">Agro-Meteorology</span>
+  </div>
+
+  <div class="grid-3">
+    <!-- Spray Suitability -->
+    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: var(--radius-md); padding: 18px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <span style="font-size: 0.88rem; font-weight: 600; color: var(--text-muted);">PESTICIDE / FOLIAR SPRAY</span>
+        <span class="badge {{ weather.agro.spray_badge }}">{{ weather.agro.spray_status }}</span>
+      </div>
+      <div style="font-size: 1.15rem; font-weight: 800; color: var(--primary-900); margin-bottom: 6px;">
+        {{ weather.agro.spray_status }} Condition
+      </div>
+      <p style="font-size: 0.88rem; color: #475569;">{{ weather.agro.spray_reason }}</p>
+    </div>
+
+    <!-- Fungal Risk -->
+    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: var(--radius-md); padding: 18px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <span style="font-size: 0.88rem; font-weight: 600; color: var(--text-muted);">PATHOGEN & FUNGAL RISK</span>
+        <span class="badge {{ weather.agro.fungal_badge }}">{{ weather.agro.fungal_risk }} Risk</span>
+      </div>
+      <div style="font-size: 1.15rem; font-weight: 800; color: var(--primary-900); margin-bottom: 6px;">
+        Spore Germination: {{ weather.agro.fungal_risk }}
+      </div>
+      <p style="font-size: 0.88rem; color: #475569;">{{ weather.agro.fungal_desc }}</p>
+    </div>
+
+    <!-- Evapotranspiration -->
+    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: var(--radius-md); padding: 18px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <span style="font-size: 0.88rem; font-weight: 600; color: var(--text-muted);">EVAPOTRANSPIRATION (ET₀)</span>
+        <span class="badge badge-info">{{ weather.agro.et0 }} mm/day</span>
+      </div>
+      <div style="font-size: 1.15rem; font-weight: 800; color: var(--primary-900); margin-bottom: 6px;">
+        Crop Water Consumption
+      </div>
+      <p style="font-size: 0.88rem; color: #475569;">
+        Estimated water loss from soil & plant transpiration. Adjust drip irrigation discharge accordingly.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- 7-Day Forecast Strip -->
+<div class="card">
+  <div class="card-header">
+    <div class="card-title"><span>📅</span> 7-Day Agricultural Forecast</div>
+    <span style="font-size: 0.85rem; color: var(--text-muted);">Source: {{ weather.source }}</span>
+  </div>
+
+  <div class="forecast-strip">
+    {% for day in weather.daily %}
+    <div class="forecast-day-card">
+      <div style="font-size: 0.85rem; font-weight: 700; color: var(--primary-900);">{{ day.day }}</div>
+      <div style="font-size: 2.2rem; margin: 8px 0;">{{ day.icon }}</div>
+      <div style="font-size: 0.82rem; color: var(--text-muted); min-height: 38px;">{{ day.desc }}</div>
+      
+      <div style="margin-top: 8px; font-weight: 700;">
+        <span style="color: #dc2626;">{{ day.max_temp }}°</span>
+        <span style="color: #cbd5e1; margin: 0 4px;">/</span>
+        <span style="color: #2563eb;">{{ day.min_temp }}°</span>
+      </div>
+
+      <div style="margin-top: 8px; font-size: 0.78rem; color: #0284c7; font-weight: 600;">
+        🌧️ {{ day.rain_prob }}% ({% if day.rain_sum %}{{ day.rain_sum }}mm{% else %}0mm{% endif %})
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- Hourly Breakdown -->
+<div class="card">
+  <div class="card-header">
+    <div class="card-title"><span>⏱️</span> Next 12 Hours Forecast</div>
+    <span style="font-size: 0.85rem; color: var(--text-muted);">Hourly temperature & precipitation probability</span>
+  </div>
+
+  <div class="hourly-scroll">
+    {% for h in weather.hourly %}
+    <div class="hourly-card">
+      <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">{{ h.time }}</div>
+      <div style="font-size: 1.8rem; margin: 4px 0;">{{ h.icon }}</div>
+      <div style="font-size: 1rem; font-weight: 700; color: var(--primary-900);">{{ h.temp }}°C</div>
+      <div style="font-size: 0.75rem; color: #0284c7; margin-top: 4px;">🌧️ {{ h.rain_prob }}%</div>
+      <div style="font-size: 0.75rem; color: var(--text-muted);">💨 {{ h.wind }}kph</div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

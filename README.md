@@ -1,0 +1,2 @@
+# Agripulse
+AgriPulse is a comprehensive, open-source web platform engineered to empower farmers, agronomists, and agricultural extension workers with real-time decision-support tools. Built using Python, Flask, Computer Vision, and Open-Meteo satellite feeds, the system combines precision agro-meteorology, visual plant diagnostics, and commodity market intelligence into a single accessible interface.

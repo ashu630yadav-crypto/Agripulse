@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+
+{% block title %}Weather Alert System & Protective Advisory - AgriPulse{% endblock %}
+
+{% block content %}
+<div class="page-title-bar">
+  <div>
+    <h1>🔔 Agricultural Weather Alert & Hazard Response System</h1>
+    <p class="page-subtitle">Real-time alerts for heavy rainfall, cold frost, scorching heatwaves, and gale-force winds with immediate crop-saving protective measures.</p>
+  </div>
+  <div>
+    {% if alerts %}
+    <button class="btn btn-voice" onclick="speakText('Attention farmer: Active weather alert for {{ weather.location_name }}. {{ alerts[0].headline }}. Key emergency action: {{ alerts[0].actions[0] }}. Protect your crops immediately.')">
+      🔊 Read Active Emergency Alerts
+    </button>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Active Weather Alerts -->
+<div class="card" style="border-top: 4px solid #d90429;">
+  <div class="card-header">
+    <div class="card-title" style="color: #d90429;">
+      <span>🚨</span> Active Agro-Climatic Hazards for {{ weather.location_name }}
+    </div>
+    <span class="badge badge-danger">{{ alerts|length }} Hazard{% if alerts|length > 1 %}s{% endif %} Detected</span>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 20px;">
+    {% for alert in alerts %}
+    <div style="background: #fff; border: 1px solid #fed7d7; border-left: 6px solid #d90429; border-radius: var(--radius-md); padding: 20px; box-shadow: var(--shadow-sm);">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px; margin-bottom: 12px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 2rem;">{{ alert.icon }}</span>
+          <div>
+            <h3 style="font-size: 1.25rem; font-weight: 800; color: #991b1b;">{{ alert.headline }}</h3>
+            <div style="font-size: 0.85rem; color: var(--text-muted);">Hazard Type: {{ alert.type }}</div>
+          </div>
+        </div>
+        <span class="badge {{ alert.severity_badge }}">{{ alert.severity }} Severity</span>
+      </div>
+
+      <p style="font-size: 0.95rem; color: #334155; margin-bottom: 16px; line-height: 1.5;">
+        {{ alert.description }}
+      </p>
+
+      <!-- Immediate Protective Actions -->
+      <div style="background: #fff5f5; border: 1px solid #fed7d7; border-radius: var(--radius-sm); padding: 16px; margin-bottom: 14px;">
+        <h4 style="font-size: 0.92rem; font-weight: 700; color: #991b1b; margin-bottom: 8px;">
+          🛡️ Mandatory Immediate Protective Actions:
+        </h4>
+        <ul style="padding-left: 20px; font-size: 0.9rem; color: #7f1d1d; display: flex; flex-direction: column; gap: 6px;">
+          {% for action in alert.actions %}
+          <li><strong>{{ action }}</strong></li>
+          {% endfor %}
+        </ul>
+      </div>
+
+      <!-- Vulnerable Crops -->
+      <div style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: #475569;">
+        <strong style="color: var(--text-dark);">High-Risk Crops in Region:</strong>
+        {% for crop in alert.impacted_crops %}
+        <span class="badge badge-warning">{{ crop }}</span>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- Interactive Alert Simulator (Test Bed for Farmers & Demonstrations) -->
+<div class="card">
+  <div class="card-header">
+    <div class="card-title"><span>🧪</span> Weather Alert Simulator & Testing Hub</div>
+    <span class="badge badge-primary">Demonstration Tool</span>
+  </div>
+  <p style="font-size: 0.88rem; color: var(--text-muted); margin-bottom: 14px;">
+    Test how the system advises farmers during extreme meteorological emergencies. Click an emergency scenario below to preview customized actionable alerts:
+  </p>
+
+  <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px;">
+    <button class="btn btn-secondary" onclick="simulateAlert('rain')">⛈️ Simulate Torrential Rain (85mm)</button>
+    <button class="btn btn-secondary" onclick="simulateAlert('heat')">🔥 Simulate Extreme Heatwave (43°C)</button>
+    <button class="btn btn-secondary" onclick="simulateAlert('frost')">❄️ Simulate Ground Frost (2.8°C)</button>
+    <button class="btn btn-secondary" onclick="simulateAlert('wind')">💨 Simulate Gale Winds (48 km/h)</button>
+  </div>
+
+  <div id="simulatedAlertDisplay" style="display: none; padding: 18px; border-radius: var(--radius-md); animation: fadeIn 0.3s ease;">
+    <!-- Filled dynamically by JavaScript below -->
+  </div>
+</div>
+
+<!-- Long-term Agricultural Disaster Mitigation Protocols -->
+<h2 style="font-size: 1.3rem; font-weight: 800; color: var(--primary-900); margin: 30px 0 16px 0;">
+  📖 Standard Farm Disaster Mitigation Protocols
+</h2>
+
+<div class="grid-2">
+  {% for proto in protocols %}
+  <div class="card" style="margin-bottom: 20px;">
+    <div class="card-header">
+      <div class="card-title">
+        <span style="font-size: 1.4rem;">{{ proto.icon }}</span>
+        <span>{{ proto.hazard }}</span>
+      </div>
+      <span class="badge badge-info">Standard SOP</span>
+    </div>
+    <p style="font-size: 0.92rem; color: #334155; line-height: 1.55;">
+      {{ proto.mitigation }}
+    </p>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const SIM_DATA = {
+    rain: {
+      icon: "⛈️",
+      title: "Flash Flood & Waterlogging Emergency Warning",
+      severity: "CRITICAL",
+      bg: "#fef2f2",
+      border: "#ef4444",
+      desc: "Doppler radar indicates severe convective rainfall exceeding 85 mm in the next 18 hours. Risk of acute root asphyxiation and field inundation.",
+      actions: [
+        "Open all perimeter drainage ditches and clear culvert blockages immediately.",
+        "Suspend all scheduled fertilizer top-dressing and chemical sprays.",
+        "Evacuate combine harvesters and farm machinery to elevated bunds or sheds."
+      ],
+      crops: ["Vegetables (Tomato, Onion)", "Cotton", "Pulses", "Nurseries"]
+    },
+    heat: {
+      icon: "🔥",
+      title: "Severe Heatwave & Pollen Sterility Alert (43°C)",
+      severity: "HIGH HAZARD",
+      bg: "#fffbeb",
+      border: "#f59e0b",
+      desc: "Extreme daytime temperatures (>42°C) coupled with desiccating hot winds (Loo) will cause severe pollen sterility in flowering crops.",
+      actions: [
+        "Provide night or late evening sprinkler irrigation to cool the crop microclimate.",
+        "Apply organic mulching (straw/crop residues) across plant beds to arrest soil evaporation.",
+        "Spray 1% Potassium Chloride (KCl) to increase leaf osmotic potential."
+      ],
+      crops: ["Horticulture crops", "Flowering Vegetables", "Maize", "Groundnut"]
+    },
+    frost: {
+      icon: "❄️",
+      title: "Sub-Zero Night Frost & Sap Freezing Hazard (2.8°C)",
+      severity: "CRITICAL",
+      bg: "#eff6ff",
+      border: "#3b82f6",
+      desc: "Clear cloudless winter skies with calm winds indicate imminent ground radiative cooling below freezing between 3:00 AM and 6:30 AM.",
+      actions: [
+        "Give light field flooding / night irrigation immediately; water retains thermal heat.",
+        "Light low-temperature smoky bonfires on north-western field edges at dusk to create insulating blanket.",
+        "Cover delicate nursery beds with straw mats or polythene tunnels."
+      ],
+      crops: ["Mustard Blossoms", "Potato Tubers", "Tomato", "Green Peas", "Papaya"]
+    },
+    wind: {
+      icon: "💨",
+      title: "Severe Windstorm & Lodging Warning (48 km/h)",
+      severity: "MODERATE TO HIGH",
+      bg: "#f8fafc",
+      border: "#64748b",
+      desc: "Squall front approaching with sustained winds of 40-50 km/h. High lodging risk in tall standing crops.",
+      actions: [
+        "Do NOT irrigate fields! Wet soil loosens roots and causes instant lodging during strong gusts.",
+        "Earth up tall sugarcane and provide bamboo staking for banana trees.",
+        "Secure polyhouse vent flaps and shade net ropes firmly."
+      ],
+      crops: ["Sugarcane", "Banana", "Tall Wheat", "Fruit Trees"]
+    }
+  };
+
+  function simulateAlert(type) {
+    const data = SIM_DATA[type];
+    if (!data) return;
+
+    const container = document.getElementById("simulatedAlertDisplay");
+    container.style.display = "block";
+    container.style.backgroundColor = data.bg;
+    container.style.border = `2px solid ${data.border}`;
+
+    let actionsHtml = data.actions.map(a => `<li><strong>${a}</strong></li>`).join('');
+    let cropsHtml = data.crops.map(c => `<span class="badge badge-warning">${c}</span>`).join(' ');
+
+    container.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 2rem;">${data.icon}</span>
+          <h3 style="font-size: 1.2rem; font-weight: 800; color: #1e293b;">${data.title}</h3>
+        </div>
+        <span class="badge badge-danger">${data.severity}</span>
+      </div>
+      <p style="font-size: 0.92rem; color: #334155; margin-bottom: 14px;">${data.desc}</p>
+      <div style="background: rgba(255,255,255,0.8); border: 1px solid rgba(0,0,0,0.1); border-radius: 6px; padding: 14px; margin-bottom: 12px;">
+        <strong style="color: #991b1b; display: block; margin-bottom: 6px;">Simulated Emergency Directives:</strong>
+        <ul style="padding-left: 20px; font-size: 0.88rem; color: #7f1d1d; display: flex; flex-direction: column; gap: 4px;">
+          ${actionsHtml}
+        </ul>
+      </div>
+      <div style="font-size: 0.85rem;"><strong>Impacted Crops:</strong> ${cropsHtml}</div>
+      <div style="margin-top: 14px;">
+        <button class="btn btn-voice" onclick="speakText('${data.title}. ${data.desc}. Key emergency action: ${data.actions[0]}')">
+          🔊 Speak This Simulated Alert
+        </button>
+      </div>
+    `;
+
+    container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+</script>
+{% endblock %}

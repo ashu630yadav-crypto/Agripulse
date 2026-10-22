@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+
+{% block title %}Crop Planting Calendar - AgriPulse{% endblock %}
+
+{% block content %}
+<div class="page-title-bar">
+  <div>
+    <h1>📅 Crop Planting & Seasonal Agro-Calendar</h1>
+    <p class="page-subtitle">Optimal sowing windows, growth stages, and harvesting timelines categorized by climate zones and cropping seasons.</p>
+  </div>
+</div>
+
+<!-- Filters Bar -->
+<div class="card" style="padding: 18px 24px;">
+  <form method="GET" action="/calendar" style="display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end;">
+    <!-- Region Filter -->
+    <div style="flex: 1; min-width: 200px;">
+      <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px;">Agro-Climatic Zone / Region</label>
+      <select name="region" onchange="this.form.submit()" style="width: 100%; padding: 8px 12px; border: 1px solid var(--card-border); border-radius: var(--radius-sm); font-size: 0.9rem;">
+        {% for reg in cal_data.regions %}
+        <option value="{{ reg.id }}" {% if selected_region == reg.id %}selected{% endif %}>{{ reg.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <!-- Season Filter -->
+    <div style="flex: 1; min-width: 180px;">
+      <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px;">Cropping Season</label>
+      <select name="season" onchange="this.form.submit()" style="width: 100%; padding: 8px 12px; border: 1px solid var(--card-border); border-radius: var(--radius-sm); font-size: 0.9rem;">
+        {% for s in cal_data.seasons %}
+        <option value="{{ s.id }}" {% if selected_season == s.id %}selected{% endif %}>{{ s.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <!-- Category Filter -->
+    <div style="flex: 1; min-width: 180px;">
+      <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px;">Crop Category</label>
+      <select name="category" onchange="this.form.submit()" style="width: 100%; padding: 8px 12px; border: 1px solid var(--card-border); border-radius: var(--radius-sm); font-size: 0.9rem;">
+        {% for c in cal_data.categories %}
+        <option value="{{ c.id }}" {% if selected_category == c.id %}selected{% endif %}>{{ c.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <a href="/calendar" class="btn btn-secondary">Reset Filters</a>
+    </div>
+  </form>
+</div>
+
+<!-- Calendar Legend -->
+<div style="display: flex; gap: 20px; align-items: center; margin-bottom: 16px; font-size: 0.88rem; flex-wrap: wrap;">
+  <span style="font-weight: 600; color: var(--text-muted);">Calendar Legend:</span>
+  <span style="display: inline-flex; align-items: center; gap: 6px;">
+    <span style="width: 16px; height: 16px; background: #bbf7d0; border: 1px solid #86efac; border-radius: 3px; display: inline-block;"></span>
+    <strong>Sowing / Nursery</strong>
+  </span>
+  <span style="display: inline-flex; align-items: center; gap: 6px;">
+    <span style="width: 16px; height: 16px; background: #fef08a; border: 1px solid #fde047; border-radius: 3px; display: inline-block;"></span>
+    <strong>Vegetative & Flowering</strong>
+  </span>
+  <span style="display: inline-flex; align-items: center; gap: 6px;">
+    <span style="width: 16px; height: 16px; background: #fed7aa; border: 1px solid #fdba74; border-radius: 3px; display: inline-block;"></span>
+    <strong>Harvesting</strong>
+  </span>
+  <span style="display: inline-flex; align-items: center; gap: 6px;">
+    <span style="width: 16px; height: 16px; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 3px; display: inline-block;"></span>
+    <span style="color: var(--text-muted);">Off-Season</span>
+  </span>
+</div>
+
+<!-- 12-Month Gantt Master Table -->
+<div class="card" style="padding: 0; overflow-x: auto;">
+  <table class="calendar-gantt-table">
+    <thead>
+      <tr style="background: #f8fafc;">
+        <th class="crop-col" style="padding-left: 20px;">Crop Name</th>
+        <th style="min-width: 90px;">Season</th>
+        {% for m in cal_data.months %}
+        <th style="min-width: 50px;">{{ m }}</th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for crop in cal_data.crops %}
+      <tr>
+        <td class="crop-col" style="padding-left: 20px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 1.3rem;">{{ crop.icon }}</span>
+            <div>
+              <div style="font-weight: 700; color: var(--primary-900);">{{ crop.name }}</div>
+              <div style="font-size: 0.75rem; color: var(--text-muted);">{{ crop.duration_days }}</div>
+            </div>
+          </div>
+        </td>
+        <td>
+          <span class="badge {% if crop.season == 'kharif' %}badge-warning{% elif crop.season == 'rabi' %}badge-primary{% elif crop.season == 'zaid' %}badge-gold{% else %}badge-success{% endif %}">
+            {{ crop.season|capitalize }}
+          </span>
+        </td>
+        {% for ms in crop.month_states %}
+        <td class="month-cell cell-{{ ms.status }}" title="{{ crop.name }}: {{ ms.label }} in {{ ms.month }}">
+          {% if ms.status == 'sow' %}Sow{% elif ms.status == 'harvest' %}Harv{% elif ms.status == 'grow' %}&bull;{% else %}-{% endif %}
+        </td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Detailed Crop Cards -->
+<h2 style="font-size: 1.3rem; font-weight: 800; color: var(--primary-900); margin: 30px 0 16px 0;">
+  🌾 Comprehensive Crop Specifications & Agronomic Tips
+</h2>
+
+<div class="grid-2">
+  {% for crop in cal_data.crops %}
+  <div class="card" style="margin-bottom: 20px;">
+    <div class="card-header">
+      <div class="card-title">
+        <span style="font-size: 1.4rem;">{{ crop.icon }}</span>
+        <span>{{ crop.name }}</span>
+      </div>
+      <span class="badge badge-success">{{ crop.duration_days }}</span>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 14px; font-size: 0.88rem;">
+      <div style="background: #f8fafc; padding: 10px; border-radius: var(--radius-sm);">
+        <strong style="color: var(--text-muted); display: block; font-size: 0.78rem;">OPTIMAL TEMPERATURE</strong>
+        <span>{{ crop.temp_range }}</span>
+      </div>
+      <div style="background: #f8fafc; padding: 10px; border-radius: var(--radius-sm);">
+        <strong style="color: var(--text-muted); display: block; font-size: 0.78rem;">SEED RATE</strong>
+        <span>{{ crop.seed_rate }}</span>
+      </div>
+      <div style="background: #f8fafc; padding: 10px; border-radius: var(--radius-sm);">
+        <strong style="color: var(--text-muted); display: block; font-size: 0.78rem;">SOIL SUITABILITY</strong>
+        <span>{{ crop.soil }}</span>
+      </div>
+      <div style="background: #f8fafc; padding: 10px; border-radius: var(--radius-sm);">
+        <strong style="color: var(--text-muted); display: block; font-size: 0.78rem;">WATER REQUIREMENT</strong>
+        <span>{{ crop.water_need }}</span>
+      </div>
+    </div>
+
+    <div style="background: #f0fdf4; border: 1px solid #bbf7d0; padding: 12px 14px; border-radius: var(--radius-sm); font-size: 0.85rem; color: #166534;">
+      <strong>💡 Agronomist Pro-Tip:</strong> {{ crop.pro_tip }}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

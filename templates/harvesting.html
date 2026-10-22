@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block title %}Harvesting Guidance & Readiness Checker - AgriPulse{% endblock %}
+
+{% block content %}
+<div class="page-title-bar">
+  <div>
+    <h1>🚜 Harvesting Guidance & Readiness Engine</h1>
+    <p class="page-subtitle">Pinpoint the precise harvest window to achieve maximum grain weight, preserve seed germination vigor, and minimize field losses.</p>
+  </div>
+  <div>
+    <button class="btn btn-voice" onclick="speakText('Harvesting guide for {{ guide.name }}: Optimal harvest moisture is {{ guide.optimal_moisture }}. Best time of day: {{ guide.best_time_of_day }}. Key maturity signs include: {{ guide.maturity_signs[0] }}. Be sure to complete the interactive readiness checklist below.')">
+      🔊 Listen to Harvesting Guide
+    </button>
+  </div>
+</div>
+
+<!-- Crop Selector Bar -->
+<div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 24px;">
+  {% for k, g in guides.items() %}
+  <a href="/harvesting?crop={{ k }}" class="sample-chip {% if current_crop == k %}active{% endif %}" style="{% if current_crop == k %}background: var(--primary-100); border-color: var(--primary-700); font-weight: 700;{% endif %}">
+    <span>{{ g.icon }}</span>
+    <span>{{ g.name }}</span>
+  </a>
+  {% endfor %}
+</div>
+
+<div class="grid-2">
+  <!-- Crop Harvesting Profile -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        <span style="font-size: 1.5rem;">{{ guide.icon }}</span>
+        <span>{{ guide.name }} - Harvest Standard</span>
+      </div>
+      <span class="badge badge-success">Moisture: {{ guide.optimal_moisture }}</span>
+    </div>
+
+    <!-- Optimal Timing & Weather -->
+    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: var(--radius-md); padding: 14px; margin-bottom: 16px;">
+      <strong style="color: var(--primary-900); display: block; margin-bottom: 4px;">⏰ Best Time of Day & Weather:</strong>
+      <p style="font-size: 0.9rem; color: #475569;">{{ guide.best_time_of_day }}</p>
+    </div>
+
+    <!-- Visual Maturity Indicators -->
+    <div style="margin-bottom: 16px;">
+      <h3 style="font-size: 1rem; font-weight: 700; color: var(--primary-900); margin-bottom: 8px;">
+        🔍 Physical & Physiological Maturity Signs
+      </h3>
+      <ul style="padding-left: 20px; font-size: 0.9rem; color: #334155; display: flex; flex-direction: column; gap: 6px;">
+        {% for sign in guide.maturity_signs %}
+        <li>{{ sign }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+
+    <!-- Harvesting Methods & Machine Calibration -->
+    <div style="margin-bottom: 16px;">
+      <h3 style="font-size: 1rem; font-weight: 700; color: var(--primary-900); margin-bottom: 8px;">
+        ⚙️ Harvesting Methodology & Machine Settings
+      </h3>
+      <ul style="padding-left: 20px; font-size: 0.9rem; color: #334155; display: flex; flex-direction: column; gap: 6px;">
+        {% for meth in guide.harvesting_methods %}
+        <li>{{ meth }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+
+    <!-- Post-Harvest & Storage Protocol -->
+    <div style="margin-bottom: 16px;">
+      <h3 style="font-size: 1rem; font-weight: 700; color: var(--primary-900); margin-bottom: 8px;">
+        📦 Post-Harvest Handling, Curing & Bin Storage
+      </h3>
+      <ul style="padding-left: 20px; font-size: 0.9rem; color: #334155; display: flex; flex-direction: column; gap: 6px;">
+        {% for step in guide.post_harvest_steps %}
+        <li>{{ step }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+
+    <!-- Loss Risks Warning -->
+    <div style="background: #fff5f5; border: 1px solid #fed7d7; border-radius: var(--radius-sm); padding: 12px; font-size: 0.88rem; color: #c53030;">
+      <strong>⚠️ Shattering & Spoilage Hazard:</strong> {{ guide.losses_risk }}
+    </div>
+  </div>
+
+  <!-- Interactive Harvest Readiness Calculator -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><span>📋</span> Interactive "Ready to Harvest?" Checklist</div>
+      <span class="badge badge-primary">Maturity Tool</span>
+    </div>
+
+    <p style="font-size: 0.88rem; color: var(--text-muted); margin-bottom: 16px;">
+      Check off the visual traits currently observed in your field to compute your harvest maturity score:
+    </p>
+
+    <input type="hidden" id="readinessCropSelect" value="{{ current_crop }}">
+
+    <div id="checklistContainer">
+      {% for crit in criteria %}
+      <label class="checklist-item">
+        <input type="checkbox" class="readiness-chk" value="{{ crit.id }}" onchange="calculateReadiness()">
+        <div style="font-size: 0.9rem; color: #1e293b;">
+          <strong>{{ crit.text }}</strong>
+          <span style="font-size: 0.78rem; color: var(--text-muted); display: block;">Weight: {{ crit.points }} points</span>
+        </div>
+      </label>
+      {% endfor %}
+    </div>
+
+    <div style="margin-top: 16px;">
+      <button type="button" class="btn btn-primary" onclick="calculateReadiness()" style="width: 100%;">
+        Evaluate Field Readiness
+      </button>
+    </div>
+
+    <!-- Readiness Result Box -->
+    <div id="readinessResultBox" style="display: none; margin-top: 20px; padding: 20px; border-radius: var(--radius-md); background: #f8fafc; border: 1px solid var(--card-border);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <span id="readinessBadge" class="badge">Status</span>
+        <div id="readinessScore" style="font-size: 2rem; font-weight: 800; color: var(--primary-900);">0%</div>
+      </div>
+      <div id="readinessVerdict" style="font-size: 1.15rem; font-weight: 700; color: var(--primary-800); margin-bottom: 8px;">Verdict</div>
+      <p id="readinessAdvice" style="font-size: 0.9rem; color: #475569; line-height: 1.5;"></p>
+    </div>
+  </div>
+</div>
+{% endblock %}
