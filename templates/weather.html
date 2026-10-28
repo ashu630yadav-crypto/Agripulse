@@ -9,32 +9,78 @@
     <p class="page-subtitle">Precision meteorology tailored for farm operations: spraying windows, fungal infection risks, and evapotranspiration.</p>
   </div>
   <div>
-    <button class="btn btn-voice" onclick="speakText('Weather forecast for {{ weather.location_name }}: Current temperature is {{ weather.current.temperature }} degrees with {{ weather.current.description }}. Spraying status is {{ weather.agro.spray_status }}. Fungal infection risk is {{ weather.agro.fungal_risk }}. Estimated evapotranspiration is {{ weather.agro.et0 }} millimeters per day.')">
+    <button class="btn btn-voice" data-speech="
+      {%- if weather.degraded -%}
+        No live weather data is available for {{ weather.location_name }} right now. Please verify conditions with the Kisan Call Centre before spraying or irrigating.
+      {%- else -%}
+        Weather forecast for {{ weather.location_name }}. Current temperature is {{ weather.current.temperature }} degrees with {{ weather.current.description }}.
+        Spraying status is {{ weather.agro.spray_status }}. Fungal infection risk is {{ weather.agro.fungal_risk }}.
+        Estimated evapotranspiration is {{ weather.agro.et0 }} millimeters per day. Source: {{ weather.source }}.
+      {%- endif -%}">
       🔊 Listen to Weather Forecast
     </button>
   </div>
 </div>
 
 <!-- Location selector pills -->
-<div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px;">
+<div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px;">
   <span style="font-size: 0.9rem; font-weight: 600; align-self: center; color: var(--text-muted);">Quick Regions:</span>
   {% for key, loc in global_locations.items() %}
-    <a href="/weather?location={{ key }}" class="sample-chip {% if current_loc == key %}active{% endif %}" style="{% if current_loc == key %}background: var(--primary-100); border-color: var(--primary-700); font-weight: 700;{% endif %}">
+    <a href="/weather?location={{ key|urlencode }}" class="sample-chip {% if current_loc == key %}active{% endif %}" style="{% if current_loc == key %}background: var(--primary-100); border-color: var(--primary-700); font-weight: 700;{% endif %}">
       📍 {{ loc.name }}
     </a>
   {% endfor %}
 </div>
 
+<!-- Search any city / town / district -->
+<form method="get" action="/weather" style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px;">
+  <input type="text" name="location" value="{% if current_loc not in global_locations %}{{ current_loc }}{% endif %}"
+         placeholder="Type any city, town or district (e.g. Dehradun, Rajahmundry, Coonoor)"
+         style="flex: 1 1 320px; padding: 10px 14px; border: 1px solid var(--card-border); border-radius: var(--radius-md); font-size: 0.95rem;">
+  <button type="submit" class="btn btn-primary">🔍 Get Live Weather</button>
+</form>
+
+<!-- Data provenance / availability banner -->
+{% if weather.degraded %}
+<div class="card" style="border-left: 5px solid var(--danger-red); background: var(--danger-bg);">
+  <div class="card-title" style="color: var(--danger-red);"><span>📡</span> No live reading available{% if weather.invalid_location %} for this place name{% endif %}</div>
+  <p style="font-size: 0.9rem; margin-top: 8px; color: #7f1d1d;">
+    {% if weather.invalid_location %}
+      “{{ current_loc }}” could not be matched to a town. Try the spelling used by India Post, or pick a Quick Region above.
+    {% else %}
+      AgriPulse will not show invented numbers on a farm decision tool, so the figures below are blank until a
+      weather source responds. Reload in a few minutes, or call Kisan Call Centre 1800-180-1551.
+    {% endif %}
+  </p>
+  {% if weather.provider_errors %}
+  <p style="font-size: 0.78rem; color: #991b1b; margin-top: 6px;">Source status: {{ weather.provider_errors | join(' &nbsp;•&nbsp; ') }}</p>
+  {% endif %}
+</div>
+{% elif weather.stale %}
+<div class="card" style="border-left: 5px solid #b45309; background: var(--warning-bg);">
+  <p style="font-size: 0.9rem; color: #78350f;">
+    ⚠️ Showing the last good reading for {{ weather.location_name }} — the live sources are not responding right now.
+  </p>
+</div>
+{% endif %}
+
 <!-- Main Weather Hero Box -->
 <div class="weather-hero">
   <div>
-    <div style="font-size: 1.1rem; opacity: 0.85; margin-bottom: 6px;">📍 {{ weather.location_name }}</div>
+    <div style="font-size: 1.1rem; opacity: 0.85; margin-bottom: 6px;">📍 {{ weather.location_name }}{% if weather.region and weather.region not in weather.location_name %} &middot; {{ weather.region }}{% endif %}</div>
     <div style="display: flex; align-items: center; gap: 20px;">
       <span style="font-size: 4.5rem;">{{ weather.current.icon }}</span>
       <div>
-        <div class="weather-hero-temp">{{ weather.current.temperature }}°C</div>
+        <div class="weather-hero-temp">{{ weather.current.temperature }}{% if not weather.degraded %}°C{% endif %}</div>
         <div style="font-size: 1.25rem; font-weight: 600;">{{ weather.current.description }}</div>
-        <div style="font-size: 0.9rem; opacity: 0.85;">Feels like {{ weather.current.feels_like }}°C &bull; Updated {{ weather.current.time }}</div>
+        <div style="font-size: 0.9rem; opacity: 0.85;">
+          {% if weather.degraded %}
+            {% if weather.invalid_location %}Enter a valid place name above{% else %}Awaiting the next live reading{% endif %}
+          {% else %}
+            Feels like {{ weather.current.feels_like }}°C &bull; {% if weather.stale %}Last reading{% else %}Updated{% endif %} {{ weather.current.time}}
+          {% endif %}
+        </div>
+        <div style="font-size: 0.8rem; opacity: 0.75; margin-top: 6px;">Data from {{ weather.source }}</div>
       </div>
     </div>
   </div>
@@ -42,19 +88,19 @@
   <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; min-width: 320px;">
     <div class="weather-metric-pill">
       <div class="label">Relative Humidity</div>
-      <div class="val">{{ weather.current.humidity }}%</div>
+      <div class="val">{{ weather.current.humidity }}{% if not weather.degraded %}%{% endif %}</div>
     </div>
     <div class="weather-metric-pill">
       <div class="label">Wind Speed</div>
-      <div class="val">{{ weather.current.wind_speed }} km/h</div>
+      <div class="val">{{ weather.current.wind_speed }}{% if not weather.degraded %} km/h{% endif %}</div>
     </div>
     <div class="weather-metric-pill">
       <div class="label">Barometric Pressure</div>
-      <div class="val">{{ weather.current.pressure }} hPa</div>
+      <div class="val">{{ weather.current.pressure }}{% if not weather.degraded %} hPa{% endif %}</div>
     </div>
     <div class="weather-metric-pill">
       <div class="label">UV Radiation Index</div>
-      <div class="val">{{ weather.current.uv_index }} Max</div>
+      <div class="val">{{ weather.current.uv_index }}{% if not weather.degraded %} Max{% endif %}</div>
     </div>
   </div>
 </div>
@@ -107,13 +153,14 @@
   </div>
 </div>
 
-<!-- 7-Day Forecast Strip -->
+<!-- Forecast Strip -->
 <div class="card">
   <div class="card-header">
-    <div class="card-title"><span>📅</span> 7-Day Agricultural Forecast</div>
+    <div class="card-title"><span>📅</span> {% if weather.daily %}{{ weather.daily | length }}-Day Agricultural Outlook{% else %}Multi-Day Agricultural Outlook{% endif %}</div>
     <span style="font-size: 0.85rem; color: var(--text-muted);">Source: {{ weather.source }}</span>
   </div>
 
+  {% if weather.daily %}
   <div class="forecast-strip">
     {% for day in weather.daily %}
     <div class="forecast-day-card">
@@ -133,15 +180,19 @@
     </div>
     {% endfor %}
   </div>
+  {% else %}
+  <p style="font-size: 0.9rem; color: var(--text-muted);">No forecast days to display yet. Retry once the weather source responds.</p>
+  {% endif %}
 </div>
 
 <!-- Hourly Breakdown -->
 <div class="card">
   <div class="card-header">
-    <div class="card-title"><span>⏱️</span> Next 12 Hours Forecast</div>
-    <span style="font-size: 0.85rem; color: var(--text-muted);">Hourly temperature & precipitation probability</span>
+    <div class="card-title"><span>⏱️</span> Short-Range Breakdown</div>
+    <span style="font-size: 0.85rem; color: var(--text-muted);">{% if weather.hourly %}{{ weather.hourly | length }} {{ weather.resolution }} steps &middot; temperature &amp; rain probability{% else %}No steps available{% endif %}</span>
   </div>
 
+  {% if weather.hourly %}
   <div class="hourly-scroll">
     {% for h in weather.hourly %}
     <div class="hourly-card">
@@ -153,5 +204,8 @@
     </div>
     {% endfor %}
   </div>
+  {% else %}
+  <p style="font-size: 0.9rem; color: var(--text-muted);">No hour-by-hour data to display yet.</p>
+  {% endif %}
 </div>
 {% endblock %}

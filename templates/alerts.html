@@ -10,7 +10,7 @@
   </div>
   <div>
     {% if alerts %}
-    <button class="btn btn-voice" onclick="speakText('Attention farmer: Active weather alert for {{ weather.location_name }}. {{ alerts[0].headline }}. Key emergency action: {{ alerts[0].actions[0] }}. Protect your crops immediately.')">
+    <button class="btn btn-voice" data-speech="Attention{% if not weather.degraded %} farmer{% endif %}: {{ alerts[0].type }} for {{ weather.location_name }}. {{ alerts[0].headline }}. First recommended action: {{ alerts[0].actions[0] }}.">
       🔊 Read Active Emergency Alerts
     </button>
     {% endif %}

@@ -62,5 +62,27 @@ class AgriPulseTestCase(unittest.TestCase):
         self.assertGreater(len(data.get("mandi_options")), 0)
         print("PASS: Market profit simulator API verified successfully")
 
+    def test_weather_follows_location_and_never_invents_data(self):
+        from services.weather_service import get_weather, NO_DATA
+
+        ludhiana = get_weather("ludhiana")
+        dehradun = get_weather("Dehradun")
+        self.assertNotEqual(ludhiana["location_name"], dehradun["location_name"],
+                            "Weather must change when the location changes")
+
+        if ludhiana["degraded"]:
+            self.assertEqual(ludhiana["current"]["temperature"], NO_DATA,
+                            "A failed live source must blank the readings, not simulate them")
+            self.assertEqual(ludhiana["agro"]["spray_status"], "Unavailable")
+        else:
+            self.assertIsInstance(ludhiana["current"]["temperature"], float)
+            self.assertNotIn("Offline", ludhiana["source"])
+            self.assertGreater(len(ludhiana["daily"]), 0)
+
+        missing = get_weather("qqzx-not-a-real-place-9999")
+        self.assertTrue(missing["degraded"] and missing["invalid_location"])
+        self.assertEqual(len(missing["daily"]), 0)
+        print("PASS: Weather sourcing contract verified")
+
 if __name__ == "__main__":
     unittest.main()

@@ -32,6 +32,12 @@ function stopSpeech() {
   }
 }
 
+// Voice buttons carry their script in a data attribute: user-typed place names stay data, never code.
+document.addEventListener("click", (event) => {
+  const voiceBtn = event.target.closest("[data-speech]");
+  if (voiceBtn) speakText(voiceBtn.dataset.speech);
+});
+
 // Location Switcher
 function handleLocationChange(selectElem) {
   const loc = selectElem.value;

@@ -1,8 +1,10 @@
 import os
+from urllib.parse import quote_plus
+
 from flask import Flask, render_template, request, jsonify, redirect, url_for
 from werkzeug.utils import secure_filename
 
-from services.weather_service import fetch_weather, get_active_weather_alerts, AGRI_LOCATIONS
+from services.weather_service import get_weather, get_active_weather_alerts, AGRI_LOCATIONS
 from services.disease_service import analyze_plant_image, DISEASE_DATABASE
 from services.calendar_service import get_calendar_data
 from services.harvesting_service import HARVEST_GUIDES, READINESS_CRITERIA, evaluate_readiness
@@ -10,7 +12,7 @@ from services.quality_service import assess_crop_quality
 from services.market_service import get_market_overview, calculate_sell_vs_hold, COMMODITIES_MARKET
 
 app = Flask(__name__)
-app.config["SECRET_KEY"] = "agripulse-krishi-secret-2026"
+app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "agripulse-dev-secret-change-me")
 app.config["UPLOAD_FOLDER"] = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16 MB max
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "webp"}
@@ -23,20 +25,24 @@ def allowed_file(filename):
 # Context processor for global navbar alerts & locations
 @app.context_processor
 def inject_globals():
-    # Use ludhiana as primary default
-    default_weather = fetch_weather("ludhiana")
+    # Follow whichever location the visitor selected, so the navbar never disagrees with the page.
+    location = request.args.get("location")
+    default_weather = get_weather(location or "ludhiana")
     active_alerts = get_active_weather_alerts(default_weather)
     return {
         "global_locations": AGRI_LOCATIONS,
         "global_alert_count": len(active_alerts),
-        "global_alerts": active_alerts
+        "global_alerts": active_alerts,
+        "global_weather": default_weather,
+        # Every navigation link carries the chosen place so the whole tool follows one location.
+        "loc_query": f"?location={quote_plus(location)}" if location else ""
     }
 
 # ----------------- HOME / DASHBOARD -----------------
 @app.route("/")
 def index():
     location = request.args.get("location", "ludhiana")
-    weather_data = fetch_weather(location)
+    weather_data = get_weather(location)
     alerts = get_active_weather_alerts(weather_data)
     market_items = get_market_overview()[:4] # top 4 for quick ticker
     calendar_preview = get_calendar_data(region="all", season="all")["crops"][:4]
@@ -54,7 +60,7 @@ def index():
 @app.route("/weather")
 def weather():
     location = request.args.get("location", "ludhiana")
-    weather_data = fetch_weather(location)
+    weather_data = get_weather(location)
     alerts = get_active_weather_alerts(weather_data)
     return render_template(
         "weather.html",
@@ -221,7 +227,7 @@ def calculate_market():
 @app.route("/alerts")
 def alerts():
     location = request.args.get("location", "ludhiana")
-    weather_data = fetch_weather(location)
+    weather_data = get_weather(location)
     alerts_list = get_active_weather_alerts(weather_data)
 
     # All standard disaster mitigation protocols
@@ -263,4 +269,9 @@ def uploaded_file(filename):
     return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
 
 if __name__ == "__main__":
-    app.run(host="127.0.0.1", port=5000, debug=True)
+    # debug must stay off in a hosted deployment: the Werkzeug console allows code execution.
+    app.run(
+        host=os.environ.get("HOST", "127.0.0.1"),
+        port=int(os.environ.get("PORT", 5000)),
+        debug=os.environ.get("FLASK_DEBUG", "0") == "1",
+    )

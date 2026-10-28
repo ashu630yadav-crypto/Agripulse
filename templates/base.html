@@ -15,7 +15,7 @@
     <div class="banner-content">
       <span class="banner-badge">{{ global_alerts[0].severity }} ALERT</span>
       <span><strong>{{ global_alerts[0].icon }} {{ global_alerts[0].type }}:</strong> {{ global_alerts[0].headline }}</span>
-      <a href="/alerts" class="banner-link">View Protective Advisory &rarr;</a>
+      <a href="/alerts{{ loc_query }}" class="banner-link">View Protective Advisory &rarr;</a>
     </div>
   </div>
   {% endif %}
@@ -36,33 +36,44 @@
           <a href="/"><span>📊</span> Dashboard</a>
         </li>
         <li class="nav-item {% if request.path == '/weather' %}active{% endif %}">
-          <a href="/weather"><span>🌦️</span> Weather & Forecast</a>
+          <a href="/weather{{ loc_query }}"><span>🌦️</span> Weather & Forecast</a>
         </li>
         <li class="nav-item {% if request.path == '/disease' %}active{% endif %}">
-          <a href="/disease"><span>🔬</span> Crop Disease AI</a>
+          <a href="/disease{{ loc_query }}"><span>🔬</span> Crop Disease AI</a>
         </li>
         <li class="nav-item {% if request.path == '/calendar' %}active{% endif %}">
-          <a href="/calendar"><span>📅</span> Planting Calendar</a>
+          <a href="/calendar{{ loc_query }}"><span>📅</span> Planting Calendar</a>
         </li>
         <li class="nav-item {% if request.path == '/harvesting' %}active{% endif %}">
-          <a href="/harvesting"><span>🚜</span> Harvesting Guide</a>
+          <a href="/harvesting{{ loc_query }}"><span>🚜</span> Harvesting Guide</a>
         </li>
         <li class="nav-item {% if request.path == '/quality' %}active{% endif %}">
-          <a href="/quality"><span>⭐</span> Quality Grading</a>
+          <a href="/quality{{ loc_query }}"><span>⭐</span> Quality Grading</a>
         </li>
         <li class="nav-item {% if request.path == '/market' %}active{% endif %}">
-          <a href="/market"><span>📈</span> Mandi Prices</a>
+          <a href="/market{{ loc_query }}"><span>📈</span> Mandi Prices</a>
         </li>
         <li class="nav-item {% if request.path == '/alerts' %}active{% endif %}">
-          <a href="/alerts"><span>🔔</span> Weather Alerts</a>
+          <a href="/alerts{{ loc_query }}"><span>🔔</span> Weather Alerts</a>
         </li>
       </ul>
 
       <div class="nav-actions">
+        {% set selected_nav_loc = request.args.get('location') %}
+        <form method="get" action="/weather" class="location-search-wrap">
+          <input type="search" name="location" required aria-label="Search any city or town for live weather"
+                 {% if selected_nav_loc and selected_nav_loc not in global_locations %}value="{{ selected_nav_loc }}"{% endif %}
+                 placeholder="Search any city or town">
+        </form>
         <div class="location-select-wrap">
           <select id="globalLocationSelect" onchange="handleLocationChange(this)" title="Change agricultural region">
+            {% if selected_nav_loc and selected_nav_loc not in global_locations %}
+              <option value="{{ selected_nav_loc }}" selected>📍 {{ global_weather.location_name }} (searched)</option>
+            {% else %}
+              <option value="" {% if not selected_nav_loc %}selected{% endif %} disabled hidden>📍 Select region</option>
+            {% endif %}
             {% for key, loc in global_locations.items() %}
-              <option value="{{ key }}" {% if request.args.get('location') == key %}selected{% endif %}>
+              <option value="{{ key }}" {% if selected_nav_loc == key %}selected{% endif %}>
                 📍 {{ loc.name }}
               </option>
             {% endfor %}
@@ -71,6 +82,17 @@
       </div>
     </nav>
   </header>
+
+  <!-- Live data provenance strip -->
+  <div class="data-strip {% if global_weather.degraded %}data-strip-down{% elif global_weather.stale %}data-strip-stale{% else %}data-strip-live{% endif %}">
+    <span class="data-strip-dot"></span>
+    {% if global_weather.degraded %}
+      <span>📡 Weather feeds unavailable{% if global_weather.invalid_location %} — that place name was not found{% endif %} — advisories are paused, not estimated</span>
+    {% else %}
+      <span>📡 Live weather for <strong>{{ global_weather.location_name }}</strong> from {{ global_weather.source }}{% if global_weather.stale %} <em>(last good reading)</em>{% endif %} &middot; observed {{ global_weather.current.time }}</span>
+    {% endif %}
+    <a href="/weather{{ loc_query }}" class="data-strip-link">Open forecast &rarr;</a>
+  </div>
 
   <!-- Main Content Block -->
   <main class="container">
@@ -86,7 +108,7 @@
       </div>
       <div style="text-align: right; font-size: 0.85rem;">
         <p>Built for Sustainable & Profitable Agriculture</p>
-        <p style="color: #64748b; margin-top: 4px;">Weather data synced via Open-Meteo &copy; 2026</p>
+        <p style="color: #64748b; margin-top: 4px;">Live weather from wttr.in (World Weather Online) &amp; Open-Meteo &copy; 2026</p>
       </div>
     </div>
   </footer>

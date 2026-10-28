@@ -10,7 +10,13 @@
     <p class="page-subtitle">Real-time weather, crop disease diagnosis, seasonal calendars, harvesting advice, and market intelligence for <strong>{{ weather.location_name }}</strong></p>
   </div>
   <div>
-    <button class="btn btn-voice" onclick="speakText('Welcome to AgriPulse. Current temperature in {{ weather.location_name }} is {{ weather.current.temperature }} degrees Celsius. {{ weather.agro.spray_status }} conditions for spraying. Check your active crop advisories below.')">
+    <button class="btn btn-voice" data-speech="
+      {%- if weather.degraded -%}
+        Welcome to AgriPulse. Live weather for {{ weather.location_name }} is not reachable right now, so spraying and irrigation advisories are paused.
+      {%- else -%}
+        Welcome to AgriPulse. Current temperature in {{ weather.location_name }} is {{ weather.current.temperature }} degrees Celsius.
+        {{ weather.agro.spray_status }} conditions for spraying. Check your active crop advisories below.
+      {%- endif -%}">
       🔊 Listen to Daily Summary
     </button>
   </div>
@@ -21,20 +27,24 @@
   <div style="display: flex; align-items: center; gap: 24px;">
     <span style="font-size: 4rem;">{{ weather.current.icon }}</span>
     <div>
-      <div class="weather-hero-temp">{{ weather.current.temperature }}°C</div>
-      <div style="font-size: 1.1rem; opacity: 0.9; margin-top: 4px;">{{ weather.current.description }} &bull; Feels like {{ weather.current.feels_like }}°C</div>
-      <div style="font-size: 0.85rem; opacity: 0.75; margin-top: 2px;">📍 {{ weather.location_name }} &bull; Updated {{ weather.current.time }}</div>
+      <div class="weather-hero-temp">{{ weather.current.temperature }}{% if not weather.degraded %}°C{% endif %}</div>
+      <div style="font-size: 1.1rem; opacity: 0.9; margin-top: 4px;">{{ weather.current.description }}{% if not weather.degraded %} &bull; Feels like {{ weather.current.feels_like }}°C{% endif %}</div>
+      <div style="font-size: 0.85rem; opacity: 0.75; margin-top: 2px;">
+        📍 {{ weather.location_name }}
+        {% if weather.degraded %}&bull; no live reading{% elif weather.stale %}&bull; last good reading {{ weather.current.time }}{% else %}&bull; {{ weather.current.time }}{% endif %}
+        &bull; {{ weather.source }}
+      </div>
     </div>
   </div>
 
   <div style="display: flex; gap: 14px; flex-wrap: wrap;">
     <div class="weather-metric-pill">
       <div class="label">Relative Humidity</div>
-      <div class="val">{{ weather.current.humidity }}%</div>
+      <div class="val">{{ weather.current.humidity }}{% if not weather.degraded %}%{% endif %}</div>
     </div>
     <div class="weather-metric-pill">
       <div class="label">Wind Speed</div>
-      <div class="val">{{ weather.current.wind_speed }} km/h</div>
+      <div class="val">{{ weather.current.wind_speed }}{% if not weather.degraded %} km/h{% endif %}</div>
     </div>
     <div class="weather-metric-pill">
       <div class="label">Spraying Status</div>
@@ -49,12 +59,12 @@
 
 <!-- Active Weather Alerts Notification -->
 {% if alerts %}
-<div class="card" style="border-left: 6px solid #d90429;">
+<div class="card" style="border-left: 6px solid {% if alerts[0].severity in ['High', 'Critical'] %}#d90429{% else %}#f59e0b{% endif %};">
   <div class="card-header">
-    <div class="card-title" style="color: #d90429;">
+    <div class="card-title" style="color: {% if alerts[0].severity in ['High', 'Critical'] %}#d90429{% else %}#b45309{% endif %};">
       <span>⚠️</span> Active Agro-Weather Advisories ({{ alerts|length }})
     </div>
-    <a href="/alerts" class="btn btn-secondary" style="font-size: 0.85rem;">View Full Protocol &rarr;</a>
+    <a href="/alerts{{ loc_query }}" class="btn btn-secondary" style="font-size: 0.85rem;">View Full Protocol &rarr;</a>
   </div>
   <div class="grid-2">
     {% for alert in alerts[:2] %}
@@ -81,8 +91,10 @@
   <!-- 1. Weather Info -->
   <div class="card">
     <div class="card-header">
-      <div class="card-title"><span>🌦️</span> Weather & 7-Day Forecast</div>
-      <span class="badge badge-success">Live</span>
+      <div class="card-title"><span>🌦️</span> Live Weather &amp; Forecast</div>
+      {% if weather.degraded %}<span class="badge badge-danger">Feeds Down</span>
+      {% elif weather.stale %}<span class="badge badge-warning">Cached</span>
+      {% else %}<span class="badge badge-success">Live</span>{% endif %}
     </div>
     <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 16px;">
       Accurate temperature, rain probability, wind metrics, and hourly spraying suitability indices to plan irrigation and fertilization.
@@ -90,7 +102,7 @@
     <div style="font-size: 0.88rem; background: #f8fafc; padding: 10px; border-radius: var(--radius-sm); margin-bottom: 16px;">
       <strong>Spraying Advisory:</strong> {{ weather.agro.spray_reason }}
     </div>
-    <a href="/weather" class="btn btn-primary" style="width: 100%;">Open Weather Radar &rarr;</a>
+    <a href="/weather{{ loc_query }}" class="btn btn-primary" style="width: 100%;">Open Weather &amp; Forecast &rarr;</a>
   </div>
 
   <!-- 2. Crop Disease Detection -->
