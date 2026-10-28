@@ -89,7 +89,7 @@
     {% if global_weather.degraded %}
       <span>📡 Weather feeds unavailable{% if global_weather.invalid_location %} — that place name was not found{% endif %} — advisories are paused, not estimated</span>
     {% else %}
-      <span>📡 Live weather for <strong>{{ global_weather.location_name }}</strong> from {{ global_weather.source }}{% if global_weather.stale %} <em>(last good reading)</em>{% endif %} &middot; observed {{ global_weather.current.time }}</span>
+      <span>📡 Live weather for <strong>{{ global_weather.location_name }}</strong> from {{ global_weather.source }}{% if global_weather.stale %} <em>(last good reading)</em>{% endif %} &middot; observed {{ global_weather.current.time }}{% if global_weather.current.timezone %} {{ global_weather.current.timezone }}{% endif %}</span>
     {% endif %}
     <a href="/weather{{ loc_query }}" class="data-strip-link">Open forecast &rarr;</a>
   </div>

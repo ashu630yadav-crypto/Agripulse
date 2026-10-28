@@ -31,7 +31,7 @@
       <div style="font-size: 1.1rem; opacity: 0.9; margin-top: 4px;">{{ weather.current.description }}{% if not weather.degraded %} &bull; Feels like {{ weather.current.feels_like }}°C{% endif %}</div>
       <div style="font-size: 0.85rem; opacity: 0.75; margin-top: 2px;">
         📍 {{ weather.location_name }}
-        {% if weather.degraded %}&bull; no live reading{% elif weather.stale %}&bull; last good reading {{ weather.current.time }}{% else %}&bull; {{ weather.current.time }}{% endif %}
+        {% if weather.degraded %}&bull; no live reading{% elif weather.stale %}&bull; last good reading {{ weather.current.time }}{% else %}&bull; {{ weather.current.time }}{% if weather.current.timezone %} {{ weather.current.timezone }}{% endif %}{% endif %}
         &bull; {{ weather.source }}
       </div>
     </div>

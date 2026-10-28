@@ -4,18 +4,23 @@ from urllib.parse import quote
 
 import requests
 
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:  # Python < 3.9
+    ZoneInfo = None
+
 # Popular agricultural hubs with coordinates
 AGRI_LOCATIONS = {
-    "ludhiana": {"name": "Ludhiana (Punjab)", "lat": 30.9010, "lon": 75.8573, "region": "Northern Plains"},
-    "nashik": {"name": "Nashik (Maharashtra)", "lat": 19.9975, "lon": 73.7898, "region": "Western Region"},
-    "varanasi": {"name": "Varanasi (Uttar Pradesh)", "lat": 25.3176, "lon": 82.9739, "region": "Gangetic Plain"},
-    "indore": {"name": "Indore (Madhya Pradesh)", "lat": 22.7196, "lon": 75.8577, "region": "Central Plateau"},
-    "guntur": {"name": "Guntur (Andhra Pradesh)", "lat": 16.3067, "lon": 80.4365, "region": "Coastal South"},
-    "nagpur": {"name": "Nagpur (Maharashtra)", "lat": 21.1458, "lon": 79.0882, "region": "Central Plains"},
-    "patna": {"name": "Patna (Bihar)", "lat": 25.5941, "lon": 85.1376, "region": "Eastern Plains"},
-    "jaipur": {"name": "Jaipur (Rajasthan)", "lat": 26.9124, "lon": 75.7873, "region": "Arid / Semi-Arid"},
-    "karnal": {"name": "Karnal (Haryana)", "lat": 29.6857, "lon": 76.9905, "region": "Wheat-Rice Belt"},
-    "coimbatore": {"name": "Coimbatore (Tamil Nadu)", "lat": 11.0168, "lon": 76.9558, "region": "Southern Highlands"}
+    "ludhiana": {"name": "Ludhiana (Punjab)", "lat": 30.9010, "lon": 75.8573, "region": "Northern Plains", "tz": "Asia/Kolkata"},
+    "nashik": {"name": "Nashik (Maharashtra)", "lat": 19.9975, "lon": 73.7898, "region": "Western Region", "tz": "Asia/Kolkata"},
+    "varanasi": {"name": "Varanasi (Uttar Pradesh)", "lat": 25.3176, "lon": 82.9739, "region": "Gangetic Plain", "tz": "Asia/Kolkata"},
+    "indore": {"name": "Indore (Madhya Pradesh)", "lat": 22.7196, "lon": 75.8577, "region": "Central Plateau", "tz": "Asia/Kolkata"},
+    "guntur": {"name": "Guntur (Andhra Pradesh)", "lat": 16.3067, "lon": 80.4365, "region": "Coastal South", "tz": "Asia/Kolkata"},
+    "nagpur": {"name": "Nagpur (Maharashtra)", "lat": 21.1458, "lon": 79.0882, "region": "Central Plains", "tz": "Asia/Kolkata"},
+    "patna": {"name": "Patna (Bihar)", "lat": 25.5941, "lon": 85.1376, "region": "Eastern Plains", "tz": "Asia/Kolkata"},
+    "jaipur": {"name": "Jaipur (Rajasthan)", "lat": 26.9124, "lon": 75.7873, "region": "Arid / Semi-Arid", "tz": "Asia/Kolkata"},
+    "karnal": {"name": "Karnal (Haryana)", "lat": 29.6857, "lon": 76.9905, "region": "Wheat-Rice Belt", "tz": "Asia/Kolkata"},
+    "coimbatore": {"name": "Coimbatore (Tamil Nadu)", "lat": 11.0168, "lon": 76.9558, "region": "Southern Highlands", "tz": "Asia/Kolkata"}
 }
 
 # WMO Weather interpretation codes
@@ -85,6 +90,47 @@ def _to_number(value, default=0.0):
         return float(value)
     except (TypeError, ValueError):
         return default
+
+
+def _zone(tz_name):
+    if ZoneInfo and tz_name:
+        try:
+            return ZoneInfo(tz_name)
+        except Exception:
+            return None
+    return None
+
+
+def _now_in(tz_name):
+    """
+    Wall-clock time at the farm. The server runs UTC, so every 'what is happening now'
+    comparison has to be made in the location's own timezone or the forecast windows shift.
+    """
+    zone = _zone(tz_name)
+    if zone:
+        return datetime.datetime.now(zone).replace(tzinfo=None)
+    return datetime.datetime.now()
+
+
+def _time_label(when, tz_name):
+    """Returns (displayed clock, zone suffix) for a naive datetime already in local time."""
+    zone = _zone(tz_name)
+    if not zone:
+        return when.strftime("%I:%M %p, %b %d (server clock)"), ""
+    offset = datetime.datetime.now(zone).utcoffset() or datetime.timedelta(0)
+    total_minutes = int(offset.total_seconds() // 60)
+    sign = "+" if total_minutes >= 0 else "-"
+    hours, minutes = divmod(abs(total_minutes), 60)
+    suffix = "UTC%s%d%s" % (sign, hours, (":%02d" % minutes) if minutes else "")
+    return when.strftime("%I:%M %p, %b %d"), suffix
+
+
+def _utc_to_local(when_utc, tz_name):
+    """Converts a UTC moment (what station feeds publish) into the farm's clock."""
+    zone = _zone(tz_name)
+    if not zone:
+        return when_utc.replace(tzinfo=None)
+    return when_utc.replace(tzinfo=datetime.timezone.utc).astimezone(zone).replace(tzinfo=None)
 
 
 def calculate_agro_metrics(temp, humidity, wind_speed, rain_chance):
@@ -158,7 +204,8 @@ def _geocode(place_name):
 
     hit = results[0]
     label = ", ".join(str(p) for p in [hit.get("name"), hit.get("admin1"), hit.get("country_code")] if p)
-    place = {"name": label, "lat": hit["latitude"], "lon": hit["longitude"], "region": hit.get("admin1") or ""}
+    place = {"name": label, "lat": hit["latitude"], "lon": hit["longitude"],
+             "region": hit.get("admin1") or "", "tz": hit.get("timezone") or ""}
     _geocode_cache[cache_key] = (time.time(), place)
     return place
 
@@ -168,11 +215,11 @@ def resolve_location(query):
     cache_key = str(query or "ludhiana").lower().strip()
     if cache_key in AGRI_LOCATIONS:
         loc = AGRI_LOCATIONS[cache_key]
-        return {"name": loc["name"], "lat": loc["lat"], "lon": loc["lon"], "region": loc["region"]}
+        return {"name": loc["name"], "lat": loc["lat"], "lon": loc["lon"], "region": loc["region"], "tz": loc.get("tz", "")}
 
     for loc in AGRI_LOCATIONS.values():
         if cache_key == loc["name"].lower().split(" (")[0].strip():
-            return {"name": loc["name"], "lat": loc["lat"], "lon": loc["lon"], "region": loc["region"]}
+            return {"name": loc["name"], "lat": loc["lat"], "lon": loc["lon"], "region": loc["region"], "tz": loc.get("tz", "")}
 
     return _geocode(cache_key)
 
@@ -192,14 +239,22 @@ def _fetch_from_wttr(place):
     cur_hum = int(_to_number(raw_cur.get("humidity"), 60))
     cur_wind = _to_number(raw_cur.get("windspeedKmph"), 10)
 
-    now = datetime.datetime.now()
-    observed = ""
-    for fmt in ("%Y-%m-%d %I:%M %p", "%Y-%m-%d %H:%M"):
+    tz_name = place.get("tz") or ""
+    now = _now_in(tz_name)
+
+    # wttr.in publishes the station observation as a UTC time-of-day with no date.
+    observed_utc = None
+    obs_clock = raw_cur.get("observation_time", "")
+    if obs_clock:
         try:
-            observed = datetime.datetime.strptime(raw_cur.get("localObsDateTime", ""), fmt).strftime("%I:%M %p, %b %d")
-            break
+            obs_time = datetime.datetime.strptime(obs_clock, "%I:%M %p").time()
+            observed_utc = datetime.datetime.combine(now.date(), obs_time)
+            if observed_utc > now:
+                observed_utc -= datetime.timedelta(days=1)
         except ValueError:
-            continue
+            observed_utc = None
+    observed_local = _utc_to_local(observed_utc, tz_name) if observed_utc else now
+    observed_time, observed_zone = _time_label(observed_local, tz_name)
 
     daily = []
     flat_hours = []
@@ -229,6 +284,7 @@ def _fetch_from_wttr(place):
             flat_hours.append((slot_dt, s))
 
     floor_dt = now.replace(minute=0, second=0, microsecond=0) - datetime.timedelta(hours=3)
+    # Slot clocks from wttr.in are already local to the place, so they match `now` above.
     hourly = [
         {
             "time": slot_dt.strftime("%I %p"),
@@ -248,6 +304,7 @@ def _fetch_from_wttr(place):
         "location_key": None,
         "location_name": place["name"],
         "region": place.get("region") or "",
+        "timezone": tz_name,
         "current": {
             "temperature": cur_temp,
             "feels_like": _to_number(raw_cur.get("FeelsLikeC"), cur_temp),
@@ -259,7 +316,8 @@ def _fetch_from_wttr(place):
             "weather_code": cur_code,
             "description": ((raw_cur.get("weatherDesc") or [{}])[0].get("value") or cur_info["desc"]).strip(),
             "icon": cur_info["icon"],
-            "time": observed or now.strftime("%I:%M %p, %b %d")
+            "time": observed_time,
+            "timezone": observed_zone
         },
         "daily": daily,
         "hourly": hourly,
@@ -313,7 +371,14 @@ def _fetch_from_open_meteo(place):
             "rain_prob": daily_data.get("precipitation_probability_max", [0])[i]
         })
 
-    now = datetime.datetime.now()
+    # Open-Meteo answers in the place's own timezone, so its "now" is already the farm's clock.
+    tz_name = data.get("timezone") or place.get("tz") or ""
+    try:
+        now = datetime.datetime.strptime(current_data.get("time"), "%Y-%m-%dT%H:%M")
+    except (TypeError, ValueError):
+        now = _now_in(tz_name)
+    current_time, current_zone = _time_label(now, tz_name)
+
     hourly = []
     for idx, t_str in enumerate(hourly_data.get("time", [])):
         dt_h = datetime.datetime.strptime(t_str, "%Y-%m-%dT%H:%M")
@@ -336,6 +401,7 @@ def _fetch_from_open_meteo(place):
         "location_key": None,
         "location_name": place["name"],
         "region": place.get("region") or "",
+        "timezone": tz_name,
         "current": {
             "temperature": cur_temp,
             "feels_like": current_data.get("apparent_temperature", cur_temp),
@@ -347,7 +413,8 @@ def _fetch_from_open_meteo(place):
             "weather_code": cur_code,
             "description": cur_info["desc"],
             "icon": cur_info["icon"],
-            "time": now.strftime("%I:%M %p, %b %d")
+            "time": current_time,
+            "timezone": current_zone
         },
         "daily": daily,
         "hourly": hourly,
@@ -366,6 +433,7 @@ def _unavailable(place_name, reasons):
         "location_key": None,
         "location_name": place_name,
         "region": "",
+        "timezone": "",
         "current": {
             "temperature": NO_DATA,
             "feels_like": NO_DATA,
@@ -377,7 +445,8 @@ def _unavailable(place_name, reasons):
             "weather_code": None,
             "description": "Live data unavailable",
             "icon": "❔",
-            "time": NO_DATA
+            "time": NO_DATA,
+            "timezone": ""
         },
         "daily": [],
         "hourly": [],
