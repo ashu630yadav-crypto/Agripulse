@@ -1,0 +1,46 @@
+Sample photographs used by the disease-detection demo
+=====================================================
+
+Every file below is a real leaf photograph, not an illustration. Each one was
+downloaded from Wikimedia Commons and is used here under the licence recorded
+next to it. The detector's output for these images is what the on-screen
+"correct about N% of the time" figures were measured from.
+
+sample_leaf_rust.jpg
+  Diagnosis shown: Leaf / Brown Rust (wheat)
+  Commons title:   File:Wheat leaf rust on wheat.jpg
+  Author:          James Kolmer (USDA Agricultural Research Service)
+  Licence:         Public domain
+  Source:          https://commons.wikimedia.org/wiki/File:Wheat_leaf_rust_on_wheat.jpg
+
+sample_leaf_spot.jpg
+  Diagnosis shown: Cercospora / Alternaria Leaf Spot (spinach)
+  Commons title:   File:Spinach- Cercospora leaf spot - 3.jpg
+  Author:          "Plant pests and diseases" (CABI/USDA slide series)
+  Licence:         CC0 (no rights reserved)
+  Source:          https://commons.wikimedia.org/wiki/File:Spinach-_Cercospora_leaf_spot_-_3.jpg
+
+sample_powdery_mildew.jpg
+  Diagnosis shown: Powdery Mildew (squash/cucumber family)
+  Commons title:   File:Podosphaera fusca a3 (1).jpg
+  Author:          Jerzy Opioła
+  Licence:         CC BY-SA 4.0
+  Source:          https://commons.wikimedia.org/wiki/File:Podosphaera_fusca_a3_(1).jpg
+
+sample_healthy_leaf.jpg
+  Diagnosis shown: Healthy Plant Foliage (Portuguese kale)
+  Commons title:   File:Close-up of Portuguese kale (Brassica oleracea var. viridis) leaf,
+                   Ponte de Sor, Portugal (approx. GPS location) julesvernex2.jpg
+  Author:          Jules Verne Times Two
+  Licence:         CC BY-SA 4.0
+  Source:          https://commons.wikimedia.org/wiki/File:Close-up_of_Portuguese_kale_(Brassica_oleracea_var._viridis)_leaf,_Ponte_de_Sor,_Portugal_(approx._GPS_location)_julesvernex2.jpg
+
+early_blight_leaf.jpg
+  Diagnosis shown: Early Blight (tomato) - labelled "schematic diagram" in the UI
+  This one is a drawn diagram, not a photograph. It is kept because concentric
+  target lesions are much easier to see in a diagram than in a field photo, and
+  because the detector's own photographs of early blight often come back
+  inconclusive. Do not read its result as a real diagnosis.
+
+grade_a_crop.jpg, grade_b_crop.jpg, grade_c_crop.jpg
+  Belong to the crop-quality module, not to disease detection.

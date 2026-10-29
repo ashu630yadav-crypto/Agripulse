@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 
-{% block title %}Crop Disease Detection AI - AgriPulse{% endblock %}
+{% block title %}Crop Disease Screening - AgriPulse{% endblock %}
 
 {% block content %}
 <div class="page-title-bar">
   <div>
     <h1>🔬 Crop Disease Identification & Treatment Engine</h1>
-    <p class="page-subtitle">Upload a photo of your affected plant leaf to detect diseases, estimate lesion surface area, and receive customized organic & chemical treatment prescriptions.</p>
+    <p class="page-subtitle">Upload a photo of an affected leaf. The tool measures the colours, spot shapes and spread on that photo, compares them with known disease signatures and returns the matching treatment prescription. It is a screening aid, not a laboratory test.</p>
   </div>
 </div>
 
@@ -15,7 +15,7 @@
   <div class="card">
     <div class="card-header">
       <div class="card-title"><span>📸</span> Upload Crop Foliage Photo</div>
-      <span class="badge badge-primary">AI Vision</span>
+      <span class="badge badge-primary">Colour &amp; shape analysis</span>
     </div>
 
     <div style="margin-bottom: 16px;">
@@ -41,7 +41,8 @@
         Click to Browse or Drag & Drop Leaf Photo
       </div>
       <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 12px;">
-        Supports JPG, PNG, WEBP &bull; Max 16MB &bull; Take photo directly from mobile camera
+        Supports JPG, PNG, WEBP &bull; Max 16MB &bull; Fill the frame with one leaf, in daylight,
+        showing both the affected spots and some healthy green
       </p>
       <input type="file" id="diseaseFileInput" accept="image/*" capture="environment" style="display: none;">
       <button type="button" class="btn btn-secondary">Select File from Device</button>
@@ -50,23 +51,29 @@
     <!-- One-Click Sample Presets -->
     <div style="margin-top: 20px;">
       <label style="display: block; font-size: 0.85rem; font-weight: 600; color: var(--text-muted); margin-bottom: 8px;">
-        Or test immediately with built-in crop samples:
+        Or test immediately with these sample leaves (clicking one also sets its crop type):
       </label>
       <div class="sample-row">
         {% for sample in samples %}
-        <div class="sample-chip" onclick="selectDiseaseSample('{{ sample.file }}')">
+        <div class="sample-chip" onclick="selectDiseaseSample('{{ sample.file }}', '{{ sample.hint }}')" title="{{ sample.credit }}">
           <img src="/static/images/samples/{{ sample.file }}" alt="{{ sample.label }}">
-          <span>{{ sample.label }}</span>
+          <span>{{ sample.label }}{% if sample.kind == 'diagram' %} <em style="font-style: italic; color: var(--text-muted);">(diagram)</em>{% endif %}</span>
         </div>
         {% endfor %}
       </div>
+      <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 8px;">
+        The four photographs are real field images from Wikimedia Commons (credit on hover; full list in
+        <code>static/images/samples/SOURCES.txt</code>). The early-blight picture is a drawn diagram, because
+        concentric target lesions show more clearly in a diagram than in most field photos &mdash; its result is
+        not a real diagnosis.
+      </p>
     </div>
 
     <!-- Loading Spinner -->
     <div id="diseaseLoading" style="display: none; text-align: center; padding: 30px;">
       <div class="spinner"></div>
       <div style="font-size: 0.95rem; font-weight: 600; color: var(--primary-800); margin-top: 12px;">
-        Extracting color spectra & leaf lesion morphology...
+        Extracting colour spectra &amp; leaf lesion morphology...
       </div>
     </div>
   </div>
@@ -80,7 +87,8 @@
       <li><strong>Focus on Individual Leaves:</strong> Capture a clear close-up of the affected leaf showing both symptomatic spots and green healthy tissue.</li>
       <li><strong>Natural Daylight:</strong> Take photos in daylight; avoid harsh shadows or direct blinding camera flash which washes out color balance.</li>
       <li><strong>Top & Underside Check:</strong> Diseases like Late Blight and Downy Mildew display white sporulation underneath the leaf. Check both sides.</li>
-      <li><strong>Early Intervention:</strong> Diagnosing when lesions cover less than 15% of canopy increases recovery chances by over 90%.</li>
+      <li><strong>Shoot the Whole Leaf:</strong> This tool measures colour and spot shape, so it needs the affected area and some healthy green tissue in the same frame. A close-up of one small spot tells it nothing.</li>
+      <li><strong>Scan Early:</strong> Spraying at the first few spots is usually cheaper and more effective than trying to stop a leaf that is already mostly brown.</li>
     </ul>
 
     <div style="margin-top: 24px; padding: 16px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: var(--radius-md);">
@@ -92,6 +100,16 @@
       </p>
     </div>
   </div>
+</div>
+
+<!-- Shown when the photo cannot be measured at all -->
+<div class="result-box" id="diseaseRejectBox">
+  <h2 style="font-size: 1.35rem; font-weight: 800; color: #92400e; margin-bottom: 8px;">📷 This photo could not be measured</h2>
+  <p id="diseaseRejectReason" style="font-size: 0.95rem; color: #334155; line-height: 1.5;"></p>
+  <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 10px;">
+    The detector refuses rather than guessing: a diagnosis is only printed when it can find leaf
+    tissue to measure. No treatment advice is given for a photo it cannot read.
+  </p>
 </div>
 
 <!-- Disease Result Box -->
@@ -116,14 +134,17 @@
 
       <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 14px;">
         <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: var(--radius-sm); text-align: center;">
-          <div style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted);">AI Confidence</div>
+          <div style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted);">Pattern match</div>
           <div id="diagConfidence" style="font-size: 1.3rem; font-weight: 800; color: var(--primary-800);">-</div>
+          <div id="diagConfidenceNote" style="font-size: 0.7rem; color: var(--text-muted);">calibrated to measured accuracy</div>
         </div>
         <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: var(--radius-sm); text-align: center;">
-          <div style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted);">Affected Leaf Area</div>
+          <div style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted);">Dead tissue on leaf</div>
           <div id="diagArea" style="font-size: 1.3rem; font-weight: 800; color: #dc2626;">-</div>
+          <div style="font-size: 0.7rem; color: var(--text-muted);">measured from the photo</div>
         </div>
       </div>
+      <div id="diagQuality" style="font-size: 0.78rem; color: var(--text-muted); margin-top: 10px;"></div>
     </div>
 
     <!-- Symptoms & Environmental Triggers -->
@@ -137,6 +158,20 @@
         <h3 style="font-size: 1.05rem; font-weight: 700; color: var(--primary-900); margin-bottom: 6px;">🌧️ Environmental Triggers & Causes</h3>
         <p id="diagCauses" style="font-size: 0.92rem; color: #334155; line-height: 1.5;"></p>
       </div>
+    </div>
+  </div>
+
+  <!-- Honest limits: differential, measurements and calibration note -->
+  <div style="margin-top: 20px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
+    <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: var(--radius-md); padding: 16px;">
+      <h3 style="font-size: 1rem; font-weight: 700; color: #92400e; margin-bottom: 8px;">⚖️ Other conditions this could be</h3>
+      <ul id="diagDifferential" style="padding-left: 20px; font-size: 0.88rem; color: #78350f; display: flex; flex-direction: column; gap: 6px;"></ul>
+      <p id="diagAccuracyNote" style="font-size: 0.8rem; color: #92400e; margin-top: 10px; border-top: 1px dashed #fcd34d; padding-top: 10px;"></p>
+    </div>
+
+    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: var(--radius-md); padding: 16px;">
+      <h3 style="font-size: 1rem; font-weight: 700; color: var(--primary-900); margin-bottom: 8px;">📐 What was measured in your photo</h3>
+      <ul id="diagEvidence" style="padding-left: 20px; font-size: 0.85rem; color: #334155; display: flex; flex-direction: column; gap: 6px;"></ul>
     </div>
   </div>
 

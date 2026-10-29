@@ -72,11 +72,20 @@ def weather():
 # ----------------- 2. CROP DISEASE DETECTION -----------------
 @app.route("/disease")
 def disease():
+    # Real photographs wherever possible; the early-blight picture is a drawn
+    # diagram and the template labels it as such. Credits live in
+    # static/images/samples/SOURCES.txt.
     sample_images = [
-        {"file": "early_blight_leaf.jpg", "label": "Early Blight (Tomato/Potato)", "hint": "tomato"},
-        {"file": "leaf_rust.jpg", "label": "Leaf Rust (Wheat/Corn)", "hint": "wheat"},
-        {"file": "powdery_mildew.jpg", "label": "Powdery Mildew (Vegetables)", "hint": "vegetables"},
-        {"file": "healthy_leaf.jpg", "label": "Healthy Leaf (Clean foliage)", "hint": "healthy"}
+        {"file": "sample_leaf_rust.jpg", "label": "Leaf Rust (wheat)", "hint": "wheat",
+         "kind": "photo", "credit": "USDA ARS / James Kolmer, public domain"},
+        {"file": "sample_leaf_spot.jpg", "label": "Cercospora leaf spot (spinach)", "hint": "",
+         "kind": "photo", "credit": "CABI slide series, CC0"},
+        {"file": "sample_powdery_mildew.jpg", "label": "Powdery mildew (squash)", "hint": "vegetables",
+         "kind": "photo", "credit": "Jerzy Opioła, CC BY-SA 4.0"},
+        {"file": "sample_healthy_leaf.jpg", "label": "Healthy kale leaf", "hint": "",
+         "kind": "photo", "credit": "Jules Verne Times Two, CC BY-SA 4.0"},
+        {"file": "early_blight_leaf.jpg", "label": "Early blight (diagram)", "hint": "tomato",
+         "kind": "diagram", "credit": "Illustration from the original AgriPulse mockups"},
     ]
     return render_template("disease.html", samples=sample_images, diseases=DISEASE_DATABASE)
 
@@ -87,11 +96,13 @@ def detect_disease():
 
     # Check if a sample image was clicked
     if sample_file:
-        sample_path = os.path.join(app.root_path, "static", "images", "samples", secure_filename(sample_file))
-        if os.path.exists(sample_path):
-            result = analyze_plant_image(sample_path, crop_hint)
-            result["image_url"] = f"/static/images/samples/{secure_filename(sample_file)}"
-            return jsonify(result)
+        safe_name = secure_filename(sample_file)
+        sample_path = os.path.join(app.root_path, "static", "images", "samples", safe_name)
+        if not os.path.exists(sample_path):
+            return jsonify({"success": False, "error": "That sample image is not available."}), 404
+        result = analyze_plant_image(sample_path, crop_hint)
+        result["image_url"] = f"/static/images/samples/{safe_name}"
+        return jsonify(result)
 
     # Check if a file was uploaded
     if "file" not in request.files:

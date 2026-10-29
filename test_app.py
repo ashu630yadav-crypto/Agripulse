@@ -16,16 +16,69 @@ class AgriPulseTestCase(unittest.TestCase):
             self.assertEqual(response.status_code, 200, f"Route {r} failed with status {response.status_code}")
             print(f"PASS: {r} returned 200 OK")
 
-    def test_disease_detection_sample(self):
-        response = self.client.post("/api/disease/detect", data={"sample_file": "early_blight_leaf.jpg", "crop_hint": "tomato"})
-        self.assertEqual(response.status_code, 200)
+    def test_disease_detection_measures_the_pixels(self):
+        """The four real photographs are the reference behaviour; if the detector
+        stops reading pixels and starts reading filenames, this test fails."""
+        expected = {
+            "sample_leaf_rust.jpg": ("wheat", "Rust"),
+            "sample_leaf_spot.jpg": ("", "Leaf Spot"),
+            "sample_powdery_mildew.jpg": ("vegetables", "Powdery Mildew"),
+            "sample_healthy_leaf.jpg": ("", "Healthy"),
+        }
+        for filename, (hint, needle) in expected.items():
+            response = self.client.post("/api/disease/detect",
+                                        data={"sample_file": filename, "crop_hint": hint})
+            self.assertEqual(response.status_code, 200, filename)
+            data = response.get_json()
+            self.assertTrue(data.get("success"), f"{filename}: {data.get('error')}")
+            self.assertIn(needle, data.get("name"), filename)
+            for key in ("candidates", "evidence", "image_quality", "accuracy_note", "measurements"):
+                self.assertIn(key, data, f"{filename} is missing its {key}")
+            # Confidence is anchored to the measured per-class accuracy, never to 100%.
+            measured = data["class_accuracy_pct"] / 100.0
+            self.assertLessEqual(data["confidence"], 100 * measured + 1, filename)
+            self.assertGreaterEqual(data["confidence"], 100 * measured * 0.8 - 1, filename)
+            self.assertGreater(len(data["organic_remedies"]), 0, filename)
+        print("PASS: Disease detector reads the photograph, sample by sample")
+
+    def test_disease_diagnosis_ignores_the_filename(self):
+        from io import BytesIO
+
+        healthy_path = os.path.join(app.root_path, "static", "images", "samples", "sample_healthy_leaf.jpg")
+        with open(healthy_path, "rb") as handle:
+            healthy = handle.read()
+        # Uploaded under a blight filename: the answer must still come from the pixels.
+        response = self.client.post(
+            "/api/disease/detect",
+            data={"file": (BytesIO(healthy), "early_blight_leaf.jpg"), "crop_hint": "tomato"},
+            content_type="multipart/form-data",
+        )
         data = response.get_json()
         self.assertTrue(data.get("success"))
-        self.assertIn("Early Blight", data.get("name"))
-        self.assertGreater(data.get("confidence"), 80)
-        self.assertGreater(len(data.get("organic_remedies")), 0)
-        self.assertGreater(len(data.get("chemical_treatments")), 0)
-        print("PASS: Disease detection API verified successfully")
+        self.assertNotIn("Blight", data["name"])
+        self.assertEqual(data["disease_key"], "healthy")
+
+        # A photo with no plant tissue in it must be rejected with a reason, not diagnosed.
+        from PIL import Image
+        buffer = BytesIO()
+        Image.new("RGB", (400, 400), (128, 128, 128)).save(buffer, format="JPEG")
+        response = self.client.post(
+            "/api/disease/detect",
+            data={"file": (BytesIO(buffer.getvalue()), "sample_leaf_rust.jpg")},
+            content_type="multipart/form-data",
+        )
+        data = response.get_json()
+        self.assertFalse(data.get("success"))
+        self.assertIn("leaf", data.get("error", "").lower())
+        print("PASS: Filenames do not drive the diagnosis; unusable photos are rejected")
+
+    def test_disease_diagram_sample_is_not_sold_as_a_photo(self):
+        response = self.client.get("/disease")
+        html = response.get_data(as_text=True)
+        self.assertIn("(diagram)", html)
+        self.assertNotIn("AI Vision", html)
+        self.assertNotIn("AI Confidence", html)
+        self.assertIn("Other conditions this could be", html)
 
     def test_quality_assessment_sample(self):
         response = self.client.post("/api/quality/assess", data={"sample_file": "grade_a_crop.jpg", "crop_name": "Tomato"})

@@ -109,10 +109,12 @@ function initDiseaseDetection() {
 
 function handleDiseaseUpload(file, sampleFilename = null) {
   const resultBox = document.getElementById("diseaseResultBox");
+  const rejectBox = document.getElementById("diseaseRejectBox");
   const loadingIndicator = document.getElementById("diseaseLoading");
   const cropHint = document.getElementById("cropHintSelect") ? document.getElementById("cropHintSelect").value : "";
 
   resultBox.classList.remove("active");
+  if (rejectBox) rejectBox.classList.remove("active");
   loadingIndicator.style.display = "block";
 
   const formData = new FormData();
@@ -133,35 +135,89 @@ function handleDiseaseUpload(file, sampleFilename = null) {
     if (data.success) {
       renderDiseaseResult(data);
     } else {
-      alert("Analysis error: " + (data.error || "Unable to diagnose"));
+      showDiseaseRejection(data.error || "Unable to read this image.");
     }
   })
   .catch(err => {
     loadingIndicator.style.display = "none";
-    alert("Connection error: " + err.message);
+    showDiseaseRejection("Connection error: " + err.message);
   });
 }
 
-function selectDiseaseSample(filename) {
+// A photo the detector cannot measure gets a reason, not a guess.
+function showDiseaseRejection(reason) {
+  const rejectBox = document.getElementById("diseaseRejectBox");
+  if (!rejectBox) {
+    alert("Analysis error: " + reason);
+    return;
+  }
+  document.getElementById("diseaseRejectReason").innerText = reason;
+  rejectBox.classList.add("active");
+  rejectBox.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function selectDiseaseSample(filename, cropHint = "") {
+  const select = document.getElementById("cropHintSelect");
+  if (select) select.value = cropHint || "";
   handleDiseaseUpload(null, filename);
 }
 
 function renderDiseaseResult(data) {
   const resultBox = document.getElementById("diseaseResultBox");
-  
+
   // Set preview image
   document.getElementById("diagImage").src = data.image_url;
   document.getElementById("diagName").innerText = data.name;
   document.getElementById("diagPathogen").innerText = data.pathogen;
-  
+
   const badge = document.getElementById("diagSeverity");
   badge.innerText = "Severity: " + data.severity;
   badge.className = "badge badge-" + data.badge_color;
 
   document.getElementById("diagConfidence").innerText = data.confidence + "%";
-  document.getElementById("diagArea").innerText = data.affected_area_pct + "% leaf surface";
+  const accNote = document.getElementById("diagConfidenceNote");
+  if (accNote) {
+    accNote.innerText = data.tested_photos
+      ? `right on ${data.tested_correct} of ${data.tested_photos} test photos of this`
+      : "no measured accuracy for this result";
+  }
+  document.getElementById("diagArea").innerText = data.affected_area_pct + "% of leaf";
   document.getElementById("diagSymptoms").innerText = data.symptoms;
   document.getElementById("diagCauses").innerText = data.causes;
+
+  const quality = data.image_quality || {};
+  const warnings = quality.warnings || [];
+  document.getElementById("diagQuality").innerText = warnings.length
+    ? "Photo problems: " + warnings.join("; ")
+    : `Photo usable: sharpness ${quality.sharpness}, brightness ${quality.brightness}.`;
+
+  // Differential: what else the same measurements are consistent with
+  const diffList = document.getElementById("diagDifferential");
+  diffList.innerHTML = "";
+  (data.candidates || []).forEach(c => {
+    const li = document.createElement("li");
+    li.innerText = `${c.name} — ${c.share}% of the measured evidence`;
+    diffList.appendChild(li);
+  });
+  if (!diffList.children.length) {
+    const li = document.createElement("li");
+    li.innerText = "Nothing in the disease database matched the colours measured in this photo.";
+    diffList.appendChild(li);
+  } else if (diffList.children.length === 1) {
+    const li = document.createElement("li");
+    li.innerText = "No second candidate: nothing else in the database matched these measurements.";
+    diffList.appendChild(li);
+  }
+  document.getElementById("diagAccuracyNote").innerText = data.accuracy_note || "";
+
+  // The numbers the diagnosis was actually built from
+  const evidenceList = document.getElementById("diagEvidence");
+  evidenceList.innerHTML = "";
+  (data.evidence || []).forEach(note => {
+    const li = document.createElement("li");
+    li.innerText = note;
+    evidenceList.appendChild(li);
+  });
 
   // Render organic remedies
   const orgList = document.getElementById("diagOrganic");
@@ -193,7 +249,7 @@ function renderDiseaseResult(data) {
   // Setup Voice Readout Button
   const voiceBtn = document.getElementById("diagVoiceBtn");
   if (voiceBtn) {
-    const speechScript = `Diagnosis: ${data.name}. Pathogen: ${data.pathogen}. Severity: ${data.severity}. Symptoms: ${data.symptoms}. Recommended organic treatment: ${data.organic_remedies.join('. ')}. Recommended chemical remedy: ${data.chemical_treatments.join('. ')}`;
+    const speechScript = `Diagnosis: ${data.name}. Pathogen: ${data.pathogen}. Severity: ${data.severity}. Symptoms: ${data.symptoms}. Recommended organic treatment: ${data.organic_remedies.join('. ')}. Recommended chemical remedy: ${data.chemical_treatments.join('. ')}. ${data.accuracy_note || ''}`;
     voiceBtn.onclick = () => speakText(speechScript);
   }
 
