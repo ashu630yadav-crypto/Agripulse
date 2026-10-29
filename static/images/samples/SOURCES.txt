@@ -1,4 +1,4 @@
-Sample photographs used by the disease-detection demo
+Sample photographs used by the disease-detection and quality-grading demos
 =====================================================
 
 Every file below is a real leaf photograph, not an illustration. Each one was
@@ -42,5 +42,44 @@ early_blight_leaf.jpg
   because the detector's own photographs of early blight often come back
   inconclusive. Do not read its result as a real diagnosis.
 
-grade_a_crop.jpg, grade_b_crop.jpg, grade_c_crop.jpg
-  Belong to the crop-quality module, not to disease detection.
+sample_carrot_bunch.jpg
+  Used by: quality grading
+  Commons title: File:CarrotRoots.jpg
+  Author:          Jonathunder
+  Licence:         GFDL 1.2 (https://www.gnu.org/licenses/old-licenses/fdl-1.2.html)
+  Source:          https://commons.wikimedia.org/wiki/File:CarrotRoots.jpg
+
+sample_tomato_wholesale_bin.jpg
+  Used by: quality grading
+  Commons title: File:Tomato wholesale market in Tanzania.jpg
+  Author:          Steadfast Gazelle
+  Licence:         CC BY 4.0
+  Source:          https://commons.wikimedia.org/wiki/File:Tomato_wholesale_market_in_Tanzania.jpg
+
+sample_scabbed_potato.jpg
+  Used by: quality grading
+  Commons title: File:Common scab on potato.jpg
+  Author:          Clemson University - USDA Cooperative Extension Slide Series, Bugwood.org
+  Licence:         CC BY 3.0 us
+  Source:          https://commons.wikimedia.org/wiki/File:Common_scab_on_potato.jpg
+
+sample_unsorted_sweet_potato_pile.jpg
+  Used by: quality grading
+  Commons title: File:Sweet Potato Harvest at Kirby Farms (20130920-OC-LSC-0731).jpg
+  Author:          USDAgov
+  Licence:         Public domain
+  Source:          https://commons.wikimedia.org/wiki/File:Sweet_Potato_Harvest_at_Kirby_Farms_(20130920-OC-LSC-0731).jpg
+
+sample_not_produce_fruit_fly.jpg
+  Used by: quality grading - this one is the refusal demo. It is a photograph of an
+  insect, not of harvested produce, and the grader is expected to decline to give it
+  a grade rather than invent one.
+  Commons title: File:Bactrocera invadens (06410592) (6776806998).jpg
+  Author:          IAEA Imagebank
+  Licence:         CC BY-SA 2.0
+  Source:          https://commons.wikimedia.org/wiki/File:Bactrocera_invadens_(06410592)_(6776806998).jpg
+
+The five files above are byte-for-byte copies of the Commons revisions that the
+quality grader was calibrated and measured against; none was re-encoded, because
+re-saving a JPEG changes the chroma and the measurement. The grade each one
+receives from the tool is whatever the pixels say, and is not printed on the chip.

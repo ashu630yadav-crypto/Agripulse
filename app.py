@@ -8,7 +8,10 @@ from services.weather_service import get_weather, get_active_weather_alerts, AGR
 from services.disease_service import analyze_plant_image, DISEASE_DATABASE
 from services.calendar_service import get_calendar_data
 from services.harvesting_service import HARVEST_GUIDES, READINESS_CRITERIA, evaluate_readiness
-from services.quality_service import assess_crop_quality
+from services.quality_service import (assess_crop_quality, GRADE_PROFILES, A_MIN_SCORE,
+                                      B_MIN_SCORE, TESTED_MATCHED, TESTED_PHOTOS,
+                                      CATCH_C_FOUND, CATCH_C_TRUE, NON_PRODUCE_REFUSED,
+                                      NON_PRODUCE_TESTED)
 from services.market_service import get_market_overview, calculate_sell_vs_hold, COMMODITIES_MARKET
 
 app = Flask(__name__)
@@ -162,14 +165,35 @@ def check_harvest_readiness():
     return jsonify(result)
 
 # ----------------- 5. CROP QUALITY ASSESSMENT -----------------
+QUALITY_SAMPLES = [
+    {"file": "sample_carrot_bunch.jpg", "label": "Washed carrot bunch",
+     "credit": "File:CarrotRoots.jpg - Jonathunder, GFDL 1.2"},
+    {"file": "sample_tomato_wholesale_bin.jpg", "label": "Tomatoes in a wholesale bin",
+     "credit": "File:Tomato wholesale market in Tanzania.jpg - Steadfast Gazelle, CC BY 4.0"},
+    {"file": "sample_scabbed_potato.jpg", "label": "Potato with corky scab",
+     "credit": "File:Common scab on potato.jpg - Clemson University/USDA, Bugwood.org, CC BY 3.0 us"},
+    {"file": "sample_unsorted_sweet_potato_pile.jpg", "label": "Unsorted sweet potato pile",
+     "credit": "File:Sweet Potato Harvest at Kirby Farms (20130920-OC-LSC-0731).jpg - USDA, public domain"},
+    {"file": "sample_not_produce_fruit_fly.jpg", "label": "A fly, not a harvest",
+     "credit": "File:Bactrocera invadens (06410592).jpg - IAEA Imagebank, CC BY-SA 2.0"},
+]
+
+
 @app.route("/quality")
 def quality():
-    sample_images = [
-        {"file": "grade_a_crop.jpg", "label": "Grade A Sample (Export Quality)", "name": "Tomato / Fresh Fruit"},
-        {"file": "grade_b_crop.jpg", "label": "Grade B Sample (Standard Mandi)", "name": "Tomato / Fresh Fruit"},
-        {"file": "grade_c_crop.jpg", "label": "Grade C Sample (Processing)", "name": "Tomato / Fresh Fruit"}
-    ]
-    return render_template("quality.html", samples=sample_images)
+    return render_template(
+        "quality.html",
+        samples=QUALITY_SAMPLES,
+        grades=GRADE_PROFILES,
+        a_min=A_MIN_SCORE,
+        b_min=B_MIN_SCORE,
+        tested_matched=TESTED_MATCHED,
+        tested_photos=TESTED_PHOTOS,
+        catch_c_found=CATCH_C_FOUND,
+        catch_c_true=CATCH_C_TRUE,
+        refused=NON_PRODUCE_REFUSED,
+        refused_tested=NON_PRODUCE_TESTED,
+    )
 
 @app.route("/api/quality/assess", methods=["POST"])
 def assess_quality():

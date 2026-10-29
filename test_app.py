@@ -1,6 +1,7 @@
 import unittest
 import json
 import os
+from io import BytesIO
 from app import app
 
 class AgriPulseTestCase(unittest.TestCase):
@@ -80,14 +81,101 @@ class AgriPulseTestCase(unittest.TestCase):
         self.assertNotIn("AI Confidence", html)
         self.assertIn("Other conditions this could be", html)
 
-    def test_quality_assessment_sample(self):
-        response = self.client.post("/api/quality/assess", data={"sample_file": "grade_a_crop.jpg", "crop_name": "Tomato"})
-        self.assertEqual(response.status_code, 200)
+    def test_quality_grades_pixels_not_filenames(self):
+        """The same photograph must get the same grade whatever it is called."""
+        from PIL import Image, ImageDraw
+
+        def lot(spots):
+            img = Image.new("RGB", (320, 320), (222, 220, 214))
+            d = ImageDraw.Draw(img)
+            d.ellipse([40, 40, 280, 280], fill=(196, 42, 34))
+            for x, y in spots:
+                d.ellipse([x - 20, y - 20, x + 20, y + 20], fill=(58, 34, 22))
+            buf = BytesIO()
+            img.save(buf, format="JPEG", quality=95)
+            return buf.getvalue()
+
+        def grade(blob, name):
+            return self.client.post(
+                "/api/quality/assess",
+                data={"file": (BytesIO(blob), name), "crop_name": "Tomato"},
+                content_type="multipart/form-data",
+            ).get_json()
+
+        # A clean lot saved under a Grade-C filename, and a marked-up lot saved
+        # under a Grade-A filename. The names must not decide anything.
+        clean = grade(lot([]), "grade_c_crop.jpg")
+        marked = grade(lot([(110, 110), (210, 110), (110, 210), (210, 210), (160, 160)]),
+                       "grade_a_crop.jpg")
+
+        self.assertTrue(clean.get("success"), clean.get("error"))
+        self.assertTrue(marked.get("success"), marked.get("error"))
+        self.assertEqual(clean["grade"], "A")
+        self.assertGreaterEqual(clean["overall_score"] - marked["overall_score"], 8,
+                                "five dark marks on the same lot did not lower the score")
+        self.assertGreater(marked["metrics"]["blemish_area_pct"],
+                           clean["metrics"]["blemish_area_pct"])
+        print("PASS: quality grade follows the pixels, not the filename")
+
+    def test_quality_reports_what_it_measured(self):
+        response = self.client.post("/api/quality/assess",
+                                    data={"sample_file": "sample_scabbed_potato.jpg", "crop_name": "Potato"})
         data = response.get_json()
         self.assertTrue(data.get("success"))
-        self.assertEqual(data.get("grade"), "A")
-        self.assertGreater(data.get("overall_score"), 80)
-        print("PASS: Crop Quality Assessment API verified successfully")
+        for key in ("evidence", "unmeasurable", "agreement", "accuracy_note", "sub_scores",
+                    "sub_weights", "measurements", "image_quality"):
+            self.assertIn(key, data)
+        m = data["metrics"]
+        for key in ("surface_purity_pct", "blemish_area_pct", "colour_evenness_pct",
+                    "dominant_saturation_pct", "rim_not_judged_pct", "produce_in_frame_pct"):
+            self.assertIn(key, m)
+        # Purity and defect area are two views of one measurement, so they must agree.
+        self.assertAlmostEqual(m["surface_purity_pct"] + m["blemish_area_pct"], 100.0, places=1)
+        self.assertGreaterEqual(m["produce_in_frame_pct"], 15.0)
+        self.assertTrue(any("measured" in line.lower() or "%" in line for line in data["evidence"]))
+        self.assertTrue(len(data["unmeasurable"]) >= 4)
+        self.assertNotIn("Computer Vision", json.dumps(data))
+        print("PASS: quality report carries its own measurements and its limits")
+
+    def test_quality_refuses_photos_it_cannot_measure(self):
+        from PIL import Image
+
+        for colour, label in (((128, 128, 128), "a grey field"), ((250, 250, 250), "a white page")):
+            buffer = BytesIO()
+            Image.new("RGB", (400, 400), colour).save(buffer, format="JPEG")
+            data = self.client.post(
+                "/api/quality/assess",
+                data={"file": (BytesIO(buffer.getvalue()), "photo.jpg")},
+                content_type="multipart/form-data",
+            ).get_json()
+            self.assertFalse(data.get("success"), f"{label} was graded anyway")
+            self.assertTrue(data.get("error"))
+
+        # A real photograph of an insect: no harvested crop in it, so no grade.
+        data = self.client.post("/api/quality/assess",
+                                data={"sample_file": "sample_not_produce_fruit_fly.jpg"}).get_json()
+        self.assertFalse(data.get("success"))
+        self.assertNotIn("grade", data)
+        print("PASS: unusable photos are refused with a reason, not scored")
+
+    def test_quality_page_publishes_the_real_bands(self):
+        from services.quality_service import A_MIN_SCORE, B_MIN_SCORE, _grade_for
+
+        self.assertEqual(_grade_for(A_MIN_SCORE), "A")
+        self.assertEqual(_grade_for(A_MIN_SCORE - 0.1), "B")
+        self.assertEqual(_grade_for(B_MIN_SCORE), "B")
+        self.assertEqual(_grade_for(B_MIN_SCORE - 0.1), "C")
+
+        html = self.client.get("/quality").get_data(as_text=True)
+        self.assertIn(f"score {A_MIN_SCORE} and above", html)
+        self.assertIn(f"score {B_MIN_SCORE} - {A_MIN_SCORE - 1}", html)
+        self.assertIn(f"score below {B_MIN_SCORE}", html)
+        self.assertNotIn("Computer Vision", html)
+        self.assertNotIn("+25% Price Premium", html)
+        # The published accuracy figures are the measured ones, not invented praise.
+        self.assertIn("What this grade cannot see", html)
+        self.assertIn("assumption", html.lower())
+        print("PASS: quality page prints the thresholds and limits the code uses")
 
     def test_harvesting_check(self):
         response = self.client.post(

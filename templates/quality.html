@@ -1,12 +1,17 @@
 {% extends "base.html" %}
 
-{% block title %}Crop Quality Assessment & Grading - AgriPulse{% endblock %}
+{% block title %}Crop Quality Grading from a Photo - AgriPulse{% endblock %}
 
 {% block content %}
 <div class="page-title-bar">
   <div>
-    <h1>⭐ Crop Quality Assessment & Commercial Grading</h1>
-    <p class="page-subtitle">Analyze harvest photos to grade produce into Grade A (Export), Grade B (Mandi), or Grade C (Processing), with tailored channel recommendations.</p>
+    <h1>⭐ Crop Quality Assessment &amp; Commercial Grading</h1>
+    <p class="page-subtitle">
+      Upload a photo of harvested produce. The tool separates the crop from the background,
+      measures how much of the visible skin is dark, pale, cut, off-colour or unripe, checks how
+      even the lot's colour is, and scores that. It grades only what one photograph can show, and
+      refuses when the photo holds nothing measurable.
+    </p>
   </div>
 </div>
 
@@ -15,22 +20,30 @@
   <div class="card">
     <div class="card-header">
       <div class="card-title"><span>📸</span> Upload Harvest Produce Photo</div>
-      <span class="badge badge-primary">Computer Vision</span>
+      <span class="badge badge-primary">Pixel colour measurement</span>
     </div>
 
     <div style="margin-bottom: 16px;">
-      <label for="qualityCropName" style="display: block; font-size: 0.88rem; font-weight: 600; margin-bottom: 6px;">Crop / Commodity Name:</label>
+      <label for="qualityCropName" style="display: block; font-size: 0.88rem; font-weight: 600; margin-bottom: 6px;">
+        Crop / Commodity Name (label only):
+      </label>
       <input type="text" id="qualityCropName" value="Tomato / Vegetable" style="width: 100%; padding: 10px; border: 1px solid var(--card-border); border-radius: var(--radius-sm); font-size: 0.92rem;">
+      <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 6px;">
+        This name is printed on the report. It does not change the grade: the tool compares each
+        piece of skin against the dominant colour of the same photo, so it never needs to know what
+        crop it is looking at.
+      </p>
     </div>
 
     <!-- Dropzone -->
     <div class="dropzone" id="qualityDropzone">
       <div class="dropzone-icon">🍎</div>
       <div style="font-size: 1.1rem; font-weight: 700; color: var(--primary-900); margin-bottom: 4px;">
-        Click or Drag & Drop Produce Photo
+        Click or Drag &amp; Drop Produce Photo
       </div>
       <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 12px;">
-        Captures skin texture, color uniformity, and blemish density &bull; JPG, PNG, WEBP
+        Lay a handful of pieces on a plain surface and fill the frame &bull; daylight, not a torch
+        &bull; pieces apart or barely touching &bull; JPG, PNG, WEBP
       </p>
       <input type="file" id="qualityFileInput" accept="image/*" capture="environment" style="display: none;">
       <button type="button" class="btn btn-secondary">Select Produce Photo</button>
@@ -39,59 +52,107 @@
     <!-- One Click Samples -->
     <div style="margin-top: 20px;">
       <label style="display: block; font-size: 0.85rem; font-weight: 600; color: var(--text-muted); margin-bottom: 8px;">
-        Or grade immediately with built-in crop samples:
+        Or grade one of these real photographs:
       </label>
       <div class="sample-row">
         {% for s in samples %}
-        <div class="sample-chip" onclick="selectQualitySample('{{ s.file }}')">
+        <div class="sample-chip" onclick="selectQualitySample('{{ s.file }}')" title="{{ s.credit }}">
           <img src="/static/images/samples/{{ s.file }}" alt="{{ s.label }}">
           <span>{{ s.label }}</span>
         </div>
         {% endfor %}
       </div>
+      <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 8px;">
+        All five are real photographs from Wikimedia Commons (credit on hover; full list in
+        <code>static/images/samples/SOURCES.txt</code>). None is labelled with a grade, because the
+        point is to see what the measurement says. The last one is a photograph of an insect and is
+        there to show what a refusal looks like.
+      </p>
     </div>
 
     <!-- Loading -->
     <div id="qualityLoading" style="display: none; text-align: center; padding: 30px;">
       <div class="spinner"></div>
       <div style="font-size: 0.95rem; font-weight: 600; color: var(--primary-800); margin-top: 12px;">
-        Evaluating surface blemishes, vibrancy, and cosmetic uniformity...
+        Separating the crop from the background and measuring its surface...
       </div>
     </div>
   </div>
 
-  <!-- Quality Standards Reference -->
+  <!-- What the grades mean, printed from the thresholds the code actually uses -->
   <div class="card">
     <div class="card-header">
-      <div class="card-title"><span>🏷️</span> Quality Classification Benchmark</div>
+      <div class="card-title"><span>🏷️</span> What Each Grade Means Here</div>
     </div>
 
     <div style="display: flex; flex-direction: column; gap: 14px;">
       <div style="background: #f0fdf4; border: 1px solid #bbf7d0; padding: 12px; border-radius: var(--radius-sm);">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-          <strong style="color: #166534;">Grade A (Premium / Export Quality)</strong>
-          <span class="badge badge-success">+25% Price Premium</span>
+          <strong style="color: #166534;">{{ grades.A.grade }}</strong>
+          <span class="badge badge-success">score {{ a_min }} and above</span>
         </div>
-        <p style="font-size: 0.85rem; color: #14532d;">Score &ge; 85%. Pristine surface, vibrant color saturation, zero cuts or bruises. Demands highest value from modern retail & export houses.</p>
+        <p style="font-size: 0.85rem; color: #14532d;">{{ grades.A.description }}</p>
+        <p style="font-size: 0.8rem; color: #166534; margin-top: 6px;"><strong>Price:</strong> {{ grades.A.price_tag }}<br><strong>Channel:</strong> {{ grades.A.channel }}</p>
       </div>
 
       <div style="background: #eff6ff; border: 1px solid #bfdbfe; padding: 12px; border-radius: var(--radius-sm);">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-          <strong style="color: #1e40af;">Grade B (Fair Average Quality - FAQ)</strong>
-          <span class="badge badge-primary">Mandi Benchmark</span>
+          <strong style="color: #1e40af;">{{ grades.B.grade }}</strong>
+          <span class="badge badge-primary">score {{ b_min }} - {{ a_min - 1 }}</span>
         </div>
-        <p style="font-size: 0.85rem; color: #1e3a8a;">Score 65% - 84%. Minor non-damaging superficial marks, standard shape and size. Traded in bulk across wholesale APMC Mandis.</p>
+        <p style="font-size: 0.85rem; color: #1e3a8a;">{{ grades.B.description }}</p>
+        <p style="font-size: 0.8rem; color: #1e40af; margin-top: 6px;"><strong>Price:</strong> {{ grades.B.price_tag }}<br><strong>Channel:</strong> {{ grades.B.channel }}</p>
       </div>
 
       <div style="background: #fffbeb; border: 1px solid #fef3c7; padding: 12px; border-radius: var(--radius-sm);">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-          <strong style="color: #92400e;">Grade C (Industrial / Processing)</strong>
-          <span class="badge badge-warning">Factory Discount</span>
+          <strong style="color: #92400e;">{{ grades.C.grade }}</strong>
+          <span class="badge badge-warning">score below {{ b_min }}</span>
         </div>
-        <p style="font-size: 0.85rem; color: #78350f;">Score &lt; 65%. Significant cosmetic defects or over-ripeness. Best channeled immediately to canning, puree, juicing, or starch plants.</p>
+        <p style="font-size: 0.85rem; color: #78350f;">{{ grades.C.description }}</p>
+        <p style="font-size: 0.8rem; color: #92400e; margin-top: 6px;"><strong>Price:</strong> {{ grades.C.price_tag }}<br><strong>Channel:</strong> {{ grades.C.channel }}</p>
       </div>
     </div>
+
+    <div style="margin-top: 18px; padding: 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: var(--radius-md);">
+      <div style="font-weight: 700; color: var(--primary-900); font-size: 0.9rem; margin-bottom: 6px;">
+        How the score is built
+      </div>
+      <p style="font-size: 0.83rem; color: #475569; line-height: 1.5;">
+        46% how much of the measured skin is free of dark, pale, cut or off-colour patches,
+        30% ripeness and colour strength (green tissue counted against the lot only when the crop is
+        not supposed to be green), and 24% how even the colour is across the pieces. A blurry or
+        badly lit photo loses 8%. The price percentages are this app's working assumption about what
+        a mandi pays per grade &mdash; they are not a quote from any market.
+      </p>
+    </div>
+
+    <div style="margin-top: 14px; padding: 14px; background: #fefce8; border: 1px solid #fde68a; border-radius: var(--radius-md);">
+      <div style="font-weight: 700; color: #92400e; font-size: 0.9rem; margin-bottom: 6px;">
+        📏 Measured against a person's eye
+      </div>
+      <p style="font-size: 0.83rem; color: #78350f; line-height: 1.5;">
+        {{ tested_photos }} produce photographs were graded by eye from the contact sheet before the
+        tool saw them. It agreed with the person on <strong>{{ tested_matched }} of {{ tested_photos }}</strong>.
+        Its weak direction is bad fruit: of the {{ catch_c_true }} lots a person called Grade C it
+        flagged <strong>{{ catch_c_found }}</strong>. Of {{ refused_tested }} photographs of things that
+        are not a harvested crop (book plates, an engraving, a sandwich, a logo, a machine, a fly) it
+        refused <strong>{{ refused }}</strong>. So a Grade A here means the visible surface measured
+        clean &mdash; it is not proof that the hidden faces are.
+      </p>
+    </div>
   </div>
+</div>
+
+<!-- Shown when the photo holds nothing measurable -->
+<div class="result-box" id="qualityRejectBox">
+  <h2 style="font-size: 1.35rem; font-weight: 800; color: #92400e; margin-bottom: 8px;">📷 This photo was not graded</h2>
+  <p id="qualityRejectReason" style="font-size: 0.95rem; color: #334155; line-height: 1.5;"></p>
+  <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 10px;">
+    The grader refuses rather than guessing. A grade is only printed when it can find produce to
+    separate from the background and skin to measure; nothing is priced, and no channel is
+    recommended, for a photo it cannot read.
+  </p>
 </div>
 
 <!-- Quality Results Box -->
@@ -102,7 +163,8 @@
         <h2 id="qualGradeTitle" style="font-size: 1.6rem; font-weight: 800; color: var(--primary-900);">Grade Title</h2>
         <span id="qualGradeBadge" class="badge">GRADE</span>
       </div>
-      <div id="qualPriceTag" style="font-size: 1.1rem; font-weight: 700; color: #16a34a;">Price Multiplier</div>
+      <div id="qualPriceTag" style="font-size: 1rem; font-weight: 700; color: #16a34a;">Price assumption</div>
+      <div id="qualCropLabel" style="font-size: 0.82rem; color: var(--text-muted); margin-top: 4px;"></div>
     </div>
     <div>
       <button id="qualVoiceBtn" class="btn btn-voice">🔊 Listen to Quality Report</button>
@@ -115,31 +177,34 @@
       <img id="qualImage" src="" alt="Graded crop" style="width: 100%; max-height: 280px; object-fit: contain; border-radius: var(--radius-md); border: 1px solid var(--card-border); background: #fafafa;">
 
       <div style="margin-top: 14px; text-align: center; background: #f8fafc; border: 1px solid #e2e8f0; padding: 16px; border-radius: var(--radius-md);">
-        <div style="font-size: 0.85rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">Overall Quality Score</div>
+        <div style="font-size: 0.85rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">Measured Surface Score</div>
         <div id="qualScore" style="font-size: 2.8rem; font-weight: 900; color: var(--primary-900); line-height: 1.1; margin-top: 4px;">0/100</div>
+        <div id="qualQualityLine" style="font-size: 0.78rem; color: var(--text-muted); margin-top: 6px;"></div>
       </div>
+
+      <div id="qualSubScores" style="display: flex; flex-direction: column; gap: 10px; margin-top: 14px;"></div>
     </div>
 
-    <!-- Metrics Breakdown & Channels -->
+    <!-- Measured numbers -->
     <div>
       <p id="qualDescription" style="font-size: 0.95rem; color: #334155; line-height: 1.5; margin-bottom: 18px;"></p>
 
       <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 18px;">
         <div style="background: #f8fafc; padding: 12px; border-radius: var(--radius-sm); border: 1px solid #e2e8f0;">
-          <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Blemish-Free Purity</div>
+          <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Skin clean of defects</div>
           <div id="qualPurity" style="font-size: 1.25rem; font-weight: 800; color: #16a34a;">-</div>
         </div>
         <div style="background: #f8fafc; padding: 12px; border-radius: var(--radius-sm); border: 1px solid #e2e8f0;">
-          <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Color Vibrancy</div>
-          <div id="qualVibrancy" style="font-size: 1.25rem; font-weight: 800; color: var(--primary-700);">-</div>
-        </div>
-        <div style="background: #f8fafc; padding: 12px; border-radius: var(--radius-sm); border: 1px solid #e2e8f0;">
-          <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Uniformity Index</div>
-          <div id="qualUniformity" style="font-size: 1.25rem; font-weight: 800; color: #0284c7;">-</div>
-        </div>
-        <div style="background: #f8fafc; padding: 12px; border-radius: var(--radius-sm); border: 1px solid #e2e8f0;">
-          <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Defect Surface %</div>
+          <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Defective skin area</div>
           <div id="qualDefect" style="font-size: 1.25rem; font-weight: 800; color: #dc2626;">-</div>
+        </div>
+        <div style="background: #f8fafc; padding: 12px; border-radius: var(--radius-sm); border: 1px solid #e2e8f0;">
+          <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Colour evenness</div>
+          <div id="qualEvenness" style="font-size: 1.25rem; font-weight: 800; color: #0284c7;">-</div>
+        </div>
+        <div style="background: #f8fafc; padding: 12px; border-radius: var(--radius-sm); border: 1px solid #e2e8f0;">
+          <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Colour strength</div>
+          <div id="qualSaturation" style="font-size: 1.25rem; font-weight: 800; color: var(--primary-700);">-</div>
         </div>
       </div>
 
@@ -150,14 +215,32 @@
 
       <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: var(--radius-sm); font-size: 0.88rem;">
         <strong>Estimated Shelf Life:</strong> <span id="qualShelfLife">-</span>
+        <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 6px;">
+          From the grade's handling profile, not from the photo: nothing about temperature,
+          humidity or how long the lot has already been off the plant is visible in an image.
+        </p>
       </div>
+    </div>
+  </div>
+
+  <!-- What was measured, and what could not be -->
+  <div style="margin-top: 20px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
+    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: var(--radius-md); padding: 16px;">
+      <h3 style="font-size: 1rem; font-weight: 700; color: var(--primary-900); margin-bottom: 8px;">📐 What was measured in your photo</h3>
+      <ul id="qualEvidence" style="padding-left: 20px; font-size: 0.85rem; color: #334155; display: flex; flex-direction: column; gap: 6px;"></ul>
+    </div>
+
+    <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: var(--radius-md); padding: 16px;">
+      <h3 style="font-size: 1rem; font-weight: 700; color: #92400e; margin-bottom: 8px;">🚫 What this grade cannot see</h3>
+      <ul id="qualUnmeasurable" style="padding-left: 20px; font-size: 0.85rem; color: #78350f; display: flex; flex-direction: column; gap: 6px;"></ul>
+      <p id="qualAccuracyNote" style="font-size: 0.8rem; color: #92400e; margin-top: 12px; border-top: 1px dashed #fcd34d; padding-top: 10px;"></p>
     </div>
   </div>
 
   <!-- Handling Tips -->
   <div style="margin-top: 20px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: var(--radius-md); padding: 18px;">
     <h3 style="font-size: 1rem; font-weight: 700; color: #166534; margin-bottom: 8px;">
-      💡 Post-Harvest Value Addition & Sorting Tips
+      💡 Post-Harvest Handling &amp; Sorting Tips
     </h3>
     <ul id="qualTips" style="padding-left: 20px; font-size: 0.9rem; color: #14532d; display: flex; flex-direction: column; gap: 6px;"></ul>
   </div>

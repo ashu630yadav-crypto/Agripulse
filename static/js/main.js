@@ -292,10 +292,12 @@ function initQualityAssessment() {
 
 function handleQualityUpload(file, sampleFilename = null) {
   const resultBox = document.getElementById("qualityResultBox");
+  const rejectBox = document.getElementById("qualityRejectBox");
   const loadingIndicator = document.getElementById("qualityLoading");
   const cropName = document.getElementById("qualityCropName") ? document.getElementById("qualityCropName").value : "Produce";
 
   resultBox.classList.remove("active");
+  if (rejectBox) rejectBox.classList.remove("active");
   loadingIndicator.style.display = "block";
 
   const formData = new FormData();
@@ -316,38 +318,104 @@ function handleQualityUpload(file, sampleFilename = null) {
     if (data.success) {
       renderQualityResult(data);
     } else {
-      alert("Grading error: " + (data.error || "Unable to grade"));
+      showQualityRejection(data.error || "Unable to grade this photo.");
     }
   })
   .catch(err => {
     loadingIndicator.style.display = "none";
-    alert("Connection error: " + err.message);
+    showQualityRejection("Connection error: " + err.message);
   });
+}
+
+// A photo with nothing measurable in it gets a reason, not a grade.
+function showQualityRejection(reason) {
+  const rejectBox = document.getElementById("qualityRejectBox");
+  if (!rejectBox) {
+    alert("Grading error: " + reason);
+    return;
+  }
+  document.getElementById("qualityRejectReason").innerText = reason;
+  rejectBox.classList.add("active");
+  rejectBox.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function selectQualitySample(filename) {
   handleQualityUpload(null, filename);
 }
 
+const QUALITY_SUB_LABELS = [
+  ["clean", "Skin free of dark, pale, cut or off-colour patches"],
+  ["ripeness", "Ripeness and colour strength of the lot"],
+  ["evenness", "How even the colour is across the pieces"]
+];
+
 function renderQualityResult(data) {
   const resultBox = document.getElementById("qualityResultBox");
+  const m = data.metrics || {};
+  const sub = data.sub_scores || {};
+  const weights = data.sub_weights || {};
+
   document.getElementById("qualImage").src = data.image_url;
   document.getElementById("qualGradeTitle").innerText = data.grade_title;
-  
+
   const gradeBadge = document.getElementById("qualGradeBadge");
   gradeBadge.innerText = "GRADE " + data.grade;
   gradeBadge.className = "badge " + data.badge;
 
   document.getElementById("qualScore").innerText = data.overall_score + "/100";
   document.getElementById("qualPriceTag").innerText = data.price_tag;
+  document.getElementById("qualCropLabel").innerText =
+    "Labelled as: " + (data.crop_name || "Produce") + " - a label you typed, not a detection";
   document.getElementById("qualDescription").innerText = data.description;
   document.getElementById("qualChannel").innerText = data.recommended_channel;
   document.getElementById("qualShelfLife").innerText = data.shelf_life;
 
-  document.getElementById("qualPurity").innerText = data.metrics.surface_purity_pct + "%";
-  document.getElementById("qualVibrancy").innerText = data.metrics.color_vibrancy_pct + "%";
-  document.getElementById("qualUniformity").innerText = data.metrics.uniformity_index + "/100";
-  document.getElementById("qualDefect").innerText = data.metrics.blemish_defect_pct + "%";
+  document.getElementById("qualPurity").innerText = m.surface_purity_pct + "%";
+  document.getElementById("qualDefect").innerText = m.blemish_area_pct + "%";
+  document.getElementById("qualEvenness").innerText = m.colour_evenness_pct + "%";
+  document.getElementById("qualSaturation").innerText = m.dominant_saturation_pct + "%";
+
+  const quality = data.image_quality || {};
+  const warnings = quality.warnings || [];
+  document.getElementById("qualQualityLine").innerText = warnings.length
+    ? "Photo problems: " + warnings.join("; ")
+    : `Photo usable: sharpness ${quality.sharpness}, brightness ${quality.brightness}.`;
+
+  // The three parts the score is actually made of, with their weights.
+  const subBox = document.getElementById("qualSubScores");
+  subBox.innerHTML = "";
+  QUALITY_SUB_LABELS.forEach(pair => {
+    const key = pair[0];
+    const v = sub[key];
+    if (v === null || v === undefined) return;
+    const row = document.createElement("div");
+    row.style.cssText = "background:#f8fafc; border:1px solid #e2e8f0; border-radius:var(--radius-sm); padding:10px 12px;";
+    const pct = Math.round((weights[key] || 0) * 100);
+    row.innerHTML =
+      `<div style="display:flex; justify-content:space-between; font-size:0.8rem; color:var(--text-muted);">` +
+      `<span>${pair[1]} <em>(weight ${pct}%)</em></span><strong>${v}</strong></div>` +
+      `<div style="height:6px; background:#e2e8f0; border-radius:3px; margin-top:6px;">` +
+      `<div style="height:6px; width:${v}%; background:var(--primary-500, #16a34a); border-radius:3px;"></div></div>`;
+    subBox.appendChild(row);
+  });
+
+  const evidenceList = document.getElementById("qualEvidence");
+  evidenceList.innerHTML = "";
+  (data.evidence || []).forEach(note => {
+    const li = document.createElement("li");
+    li.innerText = note;
+    evidenceList.appendChild(li);
+  });
+
+  const limitsList = document.getElementById("qualUnmeasurable");
+  limitsList.innerHTML = "";
+  (data.unmeasurable || []).forEach(note => {
+    const li = document.createElement("li");
+    li.innerText = note;
+    limitsList.appendChild(li);
+  });
+
+  document.getElementById("qualAccuracyNote").innerText = data.accuracy_note || "";
 
   const tipsList = document.getElementById("qualTips");
   tipsList.innerHTML = "";
@@ -359,7 +427,7 @@ function renderQualityResult(data) {
 
   const voiceBtn = document.getElementById("qualVoiceBtn");
   if (voiceBtn) {
-    const textToRead = `Quality Assessment: ${data.grade_title}. Score is ${data.overall_score} out of 100. Price tag: ${data.price_tag}. Recommended sales channel: ${data.recommended_channel}. Estimated shelf life: ${data.shelf_life}`;
+    const textToRead = `Quality assessment. ${data.grade_title}. The measured surface scored ${data.overall_score} out of 100. ${data.accuracy_note || ''} Price assumption: ${data.price_tag}. Recommended sales channel: ${data.recommended_channel}. Estimated shelf life: ${data.shelf_life}`;
     voiceBtn.onclick = () => speakText(textToRead);
   }
 
